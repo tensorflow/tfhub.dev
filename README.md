@@ -247,27 +247,27 @@ An example metadata line with a license other than Apache 2.0:
 After the right location of the markdown file is identified (see the
 [Writing the documentation](#writing-the-documentation) section above),
 the file can be pulled into the master branch of
-[tensorflow/hub](https://github.com/tensorflow/hub/tree/master/tensorflow_hub)
+[tensorflow/tfhub.dev](https://github.com/tensorflow/tfhub.dev/tree/master)
 by one of the following methods.
 
 ##### Git CLI submission
 
 Assuming the identified markdown file path is
-`tfhub_dev/assets/publisher/model/1.md`, you can follow the standard Git[Hub]
+`assets/g3doc/publisher/model/1.md`, you can follow the standard GitHub
 steps to create a new Pull Request with a newly added file.
 
-This starts with forking the TensorFlow Hub GitHub repository, then creating a
+This starts with forking the TensorFlow tfhub.dev repository, then creating a
 [Pull Request from this fork](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request-from-a-fork)
-into TensorFlow Hub master branch.
+into TensorFlow tfhub.dev master branch.
 
 The following are typical CLI git commands needed to adding a new file to a
 master branch of the forked repository.
 
 ```bash
-git clone https://github.com/[github_username]/hub.git
-cd hub
-mkdir -p tfhub_dev/assets/publisher/model
-cp my_markdown_file.md ./tfhub_dev/assets/publisher/model/1.md
+git clone https://github.com/[github_username]/tfhub.dev.git
+cd tfhub.dev
+mkdir -p assets/g3doc/publisher/model
+cp my_markdown_file.md ./assets/g3doc/publisher/model/1.md
 git add *
 git commit -m "Added model file."
 git push origin master
@@ -282,9 +282,9 @@ or
 [file edits](https://help.github.com/en/github/managing-files-in-a-repository/editing-files-in-your-repository)
 directly through GUI.
 
-1. On the [TensorFlow Hub GitHub page](https://github.com/tensorflow/hub),
+1. On the [TensorFlow tfhub.dev GitHub page](https://github.com/tensorflow/tfhub.dev),
    press `Create new file` button.
-1. Set the right file path: `hub/tfhub_dev/assets/publisher/model/1.md`
+1. Set the right file path: `assets/g3doc/publisher/model/1.md`
 1. Copy-paste the existing markdown.
 1. At the bottom, select "Create a new branch for this commit and start a pull
    request."

@@ -137,7 +137,7 @@ tar -cvz -f my_model.tar.gz --owner=0 --group=0 -C "${MODEL_DIR}" .  # Don't lea
 
 The model documentation is a markdown file with a light add-on syntax. See
 example below for a minimal example or
-[a more realistic example markdown file](examples/example-markdown.md).
+[a more realistic example markdown file](examples/g3doc/example-markdown.md).
 
 <details>
 <summary>Example documentation</summary>

@@ -16,7 +16,7 @@ name: TF Hub terms of service
 
 on:
   pull_request:
-    types: [opened, closed]
+    types: [closed]
 
 jobs:
   comment:
@@ -33,5 +33,5 @@ jobs:
             $URL \
             -H "Content-Type: application/json" \
             -H "Authorization: token $GITHUB_TOKEN" \
-            --data '{ "body": "By submitting this pull request, you agree to the TensorFlow Hub Terms of Service at https://tfhub.dev/terms." }'
+            --data '{ "body": "Thank you for your contribution. Your pull request has been accepted according to the TensorFlow Hub Terms of Service at www.tfhub.dev/terms. Your model should appear on tfhub.dev within a day." }'
 

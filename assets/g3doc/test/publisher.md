@@ -1,3 +1,0 @@
-Publisher test.
-
-Test documentation.

@@ -6,7 +6,7 @@ This repository serves for storing documentation for models to be published on
 
 Please note that publishing to tfhub.dev is in **early testing**. If you are
 interested in publishing, please follow
-[https://www.tensorflow.org/hub/becoming_a_publisher](https://www.tensorflow.org/hub/becoming_a_publisher)
+[https://www.tensorflow.org/hub/publish](https://www.tensorflow.org/hub/publish)
 and we will process your submission as soon as possible.
 
 Please see the [GitHub documentation](https://docs.github.com/en/free-pro-team@latest/github/collaborating-with-issues-and-pull-requests/creating-a-pull-request)

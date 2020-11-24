@@ -3,7 +3,7 @@
 Tulasi Ram.
 
 ## Details
-Tulasi Ram ([@Tulasi123789](https://twitter.com/Tulasi123789))
+Tulasi Ram ([@Tulasi123789](https://twitter.com/Tulasi123789)).
 Deep Learning Engineer at Motorola Solutions.
 
 **GitHub:** [tulasiram58827](https://github.com/tulasiram58827)\

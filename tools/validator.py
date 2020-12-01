@@ -482,7 +482,7 @@ def validate_documentation_files(documentation_dir,
 
 def main(_):
   root_dir = FLAGS.root_dir or os.getcwd()
-  documentation_dir = os.path.join(root_dir, "assets")
+  documentation_dir = os.path.join(root_dir, "assets", "docs")
   logging.info("Using %s for documentation directory.", documentation_dir)
 
   files_to_validate = None
@@ -512,7 +512,7 @@ if __name__ == "__main__":
       "--root_dir",
       type=str,
       default=None,
-      help=("Root directory that contains documentation files under ./assets. "
-            "Defaults to current directory."))
+      help=("Root directory that contains documentation files under "
+            "./assets/docs. Defaults to current directory."))
   FLAGS, unparsed = parser.parse_known_args()
   app.run(main=main, argv=[sys.argv[0]] + unparsed)

@@ -15,18 +15,18 @@
 """Markdown documentation validator for published models.
 
 1) To validate selected files, run from the project root path:
-$ python tfhub_dev/tools/validator.py vtab/models/wae-ukl/1.md [other_files]
+$ python tools/validator.py vtab/models/wae-ukl/1.md [other_files]
 
 This will download and smoke test the model specified on asset-path metadata.
 
 2) To validate all documentation files, run from the project root path:
-$ python tfhub_dev/tools/validator.py
+$ python tools/validator.py
 
 This does not download and smoke test the model.
 
 3) To validate files from outside the project root path, use the --root_dir
 flag:
-$ python tfhub_dev/tools/validator.py --root_dir=path_to_project_root
+$ python tools/validator.py --root_dir=path_to_project_root
 """
 
 import abc
@@ -482,7 +482,7 @@ def validate_documentation_files(documentation_dir,
 
 def main(_):
   root_dir = FLAGS.root_dir or os.getcwd()
-  documentation_dir = os.path.join(root_dir, "tfhub_dev", "assets")
+  documentation_dir = os.path.join(root_dir, "assets")
   logging.info("Using %s for documentation directory.", documentation_dir)
 
   files_to_validate = None
@@ -512,7 +512,7 @@ if __name__ == "__main__":
       "--root_dir",
       type=str,
       default=None,
-      help=("Root directory that contains documentation files under "
-            "./tfhub_dev/assets. Defaults to current directory."))
+      help=("Root directory that contains documentation files under ./assets. "
+            "Defaults to current directory."))
   FLAGS, unparsed = parser.parse_known_args()
   app.run(main=main, argv=[sys.argv[0]] + unparsed)

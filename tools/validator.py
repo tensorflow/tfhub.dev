@@ -374,8 +374,8 @@ class DocumentationParser(object):
       # Not an empty line and not expected metadata.
       self.raise_error(
           "Unexpected line found: \"%s\". Please refer to [README.md]"
-          "(https://github.com/tensorflow/hub/blob/master/tensorflow_hub"
-          "/tfhub_dev/README.md) for information about markdown format." %
+          "(https://github.com/tensorflow/tfhub.dev/blob/master/README.md) "
+          "for information about markdown format." %
           self._lines[self._current_index])
 
   def assert_correct_metadata(self):

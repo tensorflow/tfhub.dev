@@ -90,6 +90,13 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
 }
 
 
+def _recursive_list_dir(root_dir):
+  """Yields all files of a root directory tree."""
+  for dirname, _, filenames in tf.io.gfile.walk(root_dir):
+    for filename in filenames:
+      yield os.path.join(dirname, filename)
+
+
 class Filesystem(object):
   """Convenient (and mockable) file system access."""
 
@@ -104,9 +111,7 @@ class Filesystem(object):
 
   def recursive_list_dir(self, root_dir):
     """Yields all files of a root directory tree."""
-    for dirname, _, filenames in tf.io.gfile.walk(root_dir):
-      for filename in filenames:
-        yield os.path.join(dirname, filename)
+    return _recursive_list_dir(root_dir)
 
 
 class MarkdownDocumentationError(Exception):
@@ -117,9 +122,19 @@ def smoke_test_model(model_path):
   try:
     resolved_model = hub.resolve(model_path)
     loader_impl.parse_saved_model(resolved_model)
+    _validate_file_paths(resolved_model)
   except Exception as e:  # pylint: disable=broad-except
     return False, e
   return True, None
+
+
+def _validate_file_paths(model_dir):
+  valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
+  for filepath in _recursive_list_dir(model_dir):
+    if not valid_path_regex.fullmatch(filepath):
+      raise MarkdownDocumentationError(f'Invalid filepath in asset: {filepath}')
+    else:
+      print(f'File {filepath} is valid.')
 
 
 class ParsingPolicy(object):
@@ -479,7 +494,7 @@ def validate_documentation_files(documentation_dir,
     logging.info(
         "No models were smoke tested. To download and smoke test a specific "
         "model, specify files directly in the command line, for example: "
-        "\"python tfhub_dev/tools/validator.py vtab/models/wae-ukl/1.md\"")
+        "\"python tools/validator.py vtab/models/wae-ukl/1.md\"")
   return validated
 
 

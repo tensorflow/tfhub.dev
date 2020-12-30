@@ -477,6 +477,21 @@ class ValidatorTest(tf.test.TestCase):
       validator.validate_documentation_files(
           documentation_dir="root", filesystem=filesystem)
 
+  def test_model_with_invalid_filenames_fails_smoke_test(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                            self.minimal_markdown)
+    self.set_up_publisher_page(filesystem, "google")
+    with open(os.path.join(self.model_path, ".invalid_file"), "w") as bad_file:
+      bad_file.write("This file shouldn't be here")
+    documentation_parser = validator.DocumentationParser("root", filesystem)
+    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
+                                 r"Invalid filepath.*\.invalid_file"):
+      validator.validate_documentation_files(
+          documentation_parser.validate(
+              file_path="root/google/models/text-embedding-model/1.md",
+              do_smoke_test=True))
+
 
 if __name__ == "__main__":
   tf.compat.v1.enable_v2_behavior()

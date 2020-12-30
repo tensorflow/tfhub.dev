@@ -192,6 +192,7 @@ class ModelParsingPolicy(ParsingPolicy):
     else:
       self.raise_error("Unexpected model type: %s", self._model_type)
 
+  @property
   def type_name(self):
     return self._model_type
 
@@ -208,6 +209,7 @@ class ModelParsingPolicy(ParsingPolicy):
 class PublisherParsingPolicy(ParsingPolicy):
   """ParsingPolicy for publisher documentation."""
 
+  @property
   def type_name(self):
     return "Publisher"
 
@@ -222,6 +224,7 @@ class PublisherParsingPolicy(ParsingPolicy):
 class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
+  @property
   def type_name(self):
     return "Collection"
 
@@ -426,7 +429,7 @@ class DocumentationParser(object):
     """Smoke test asset provided on asset-path metadata."""
     if "asset-path" not in self._parsed_metadata:
       return
-    if self._parsing_policy.type_name() != "Module":
+    if self._parsing_policy.type_name != "Module":
       return
     asset_path = list(self._parsed_metadata["asset-path"])[0]
     asset_tester = self._parsing_policy.asset_tester()

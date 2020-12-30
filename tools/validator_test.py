@@ -19,7 +19,7 @@ import shutil
 import tempfile
 import tensorflow as tf
 
-from tensorflow_hub.tfhub_dev.tools import validator
+from tfhub_dev.tools import validator
 
 
 class MockFilesystem(validator.Filesystem):

@@ -133,8 +133,6 @@ def _validate_file_paths(model_dir):
   for filepath in _recursive_list_dir(model_dir):
     if not valid_path_regex.fullmatch(filepath):
       raise MarkdownDocumentationError(f'Invalid filepath in asset: {filepath}')
-    else:
-      print(f'File {filepath} is valid.')
 
 
 class ParsingPolicy(object):

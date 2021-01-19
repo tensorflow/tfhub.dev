@@ -437,6 +437,20 @@ class ValidatorTest(tf.test.TestCase):
     }
     self.assertAllEqual(expected_metadata, documentation_parser.parsed_metadata)
 
+  def test_asset_path_is_github_download_url_test(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents(
+        "root/google/models/text-embedding-model/1.md",
+        MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE %
+        "https://github.com/some_repo/releases/download/some_path")
+    self.set_up_publisher_page(filesystem, "google")
+    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
+                                 ".*cannot be automatically fetched.*"):
+      validator.validate_documentation_files(
+          documentation_dir="root",
+          files_to_validate=["google/models/text-embedding-model/1.md"],
+          filesystem=filesystem)
+
   def test_bad_model_does_not_pass_smoke_test(self):
     filesystem = MockFilesystem()
     filesystem.set_contents("root/google/models/text-embedding-model/1.md",

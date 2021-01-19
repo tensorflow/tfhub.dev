@@ -442,9 +442,21 @@ class DocumentationParser(object):
     """Smoke test asset provided on asset-path metadata."""
     if "asset-path" not in self._parsed_metadata:
       return
+    asset_path = list(self._parsed_metadata["asset-path"])[0]
+
+    # GitHub's robots.txt disallows fetches to */download, which means that
+    # the asset-path URL cannot be fetched. Markdown validation should fail if
+    # asset-path matches this regex.
+    github_download_url_regex = re.compile(
+        "https://github.com/.*/releases/download/.*")
+    if github_download_url_regex.fullmatch(asset_path):
+      self.raise_error(
+          "The asset-path %s is a url that cannot be automatically fetched. "
+          "Please provide an asset-path that is allowed to be fetched by its "
+          "robots.txt." % asset_path)
+
     if self._parsing_policy.type_name != "Module":
       return
-    asset_path = list(self._parsed_metadata["asset-path"])[0]
     asset_tester = self._parsing_policy.asset_tester()
     passed, reason = asset_tester(asset_path)
     if not passed:

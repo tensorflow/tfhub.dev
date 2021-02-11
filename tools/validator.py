@@ -33,6 +33,7 @@ import abc
 import argparse
 import os
 import re
+import subprocess
 import sys
 from absl import app
 from absl import logging
@@ -438,9 +439,29 @@ class DocumentationParser(object):
             "specify a license id from list of allowed ids: [%s]. Example: "
             "<!-- license: Apache-2.0 -->" % (license_id, allowed_license_ids))
 
+  def _is_asset_path_modified(self):
+    """Return True if the asset-path tag has been added or modified."""
+    # pylint: disable=subprocess-run-check
+    command = "git diff %s | grep \"+<!-- asset-path:\"" % self._file_path
+    result = subprocess.run(command, shell=True)
+    # grep exits with code 1 if it cannot find "+<!-- asset-path" in `git diff`.
+    # Raise an error if the exit code is not 0 or 1.
+    if result.returncode == 0:
+      return True
+    elif result.returncode == 1:
+      return False
+    else:
+      self.raise_error("%s returned unexpected exit code %s" %
+                       (command, result.returncode))
+
   def smoke_test_asset(self):
     """Smoke test asset provided on asset-path metadata."""
     if "asset-path" not in self._parsed_metadata:
+      return
+
+    if not self._is_asset_path_modified():
+      logging.info("Skipping asset smoke test since the tag is not added or "
+                   "modified.")
       return
     asset_path = list(self._parsed_metadata["asset-path"])[0]
 

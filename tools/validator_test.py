@@ -17,8 +17,9 @@
 import os
 import shutil
 import tempfile
-import tensorflow as tf
 
+import mock
+import tensorflow as tf
 from tools import validator
 
 
@@ -181,6 +182,16 @@ One line description.
 ## Overview
 """
 
+MARKDOWN_WITH_LEGACY_TAG = """# Module google/text-embedding-model/1
+One line description.
+<!-- asset-path: legacy -->
+<!-- module-type: text-embedding -->
+<!-- fine-tunable: true -->
+<!-- format: saved_model_2 -->
+
+## Overview
+"""
+
 MARKDOWN_WITH_UNEXPECTED_LINES = """# Module google/text-embedding-model/1
 One line description.
 <!-- module-type: text-embedding -->
@@ -220,6 +231,12 @@ class ValidatorTest(tf.test.TestCase):
     self.minimal_markdown = MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
     self.minimal_markdown_with_bad_model = (
         MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.not_a_model_path)
+    self.asset_path_modified = mock.patch.object(
+        validator.DocumentationParser,
+        "_is_asset_path_modified",
+        return_value=True)
+    self.asset_path_modified.start()
+    self.addCleanup(self.asset_path_modified.stop)
 
   def tearDown(self):
     super(tf.test.TestCase, self).tearDown()
@@ -450,6 +467,33 @@ class ValidatorTest(tf.test.TestCase):
           documentation_dir="root",
           files_to_validate=["google/models/text-embedding-model/1.md"],
           filesystem=filesystem)
+
+  def test_asset_path_is_legacy_and_modified(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                            MARKDOWN_WITH_LEGACY_TAG)
+    self.set_up_publisher_page(filesystem, "google")
+    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
+                                 ".*failed to parse.*"):
+      validator.validate_documentation_files(
+          documentation_dir="root",
+          files_to_validate=["google/models/text-embedding-model/1.md"],
+          filesystem=filesystem)
+
+  def test_asset_path_is_legacy_and_unmodified(self):
+    self.asset_path_modified = mock.patch.object(
+        validator.DocumentationParser,
+        "_is_asset_path_modified",
+        return_value=False)
+    self.asset_path_modified.start()
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                            MARKDOWN_WITH_LEGACY_TAG)
+    self.set_up_publisher_page(filesystem, "google")
+    validator.validate_documentation_files(
+        documentation_dir="root",
+        files_to_validate=["google/models/text-embedding-model/1.md"],
+        filesystem=filesystem)
 
   def test_bad_model_does_not_pass_smoke_test(self):
     filesystem = MockFilesystem()

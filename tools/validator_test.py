@@ -192,6 +192,30 @@ One line description.
 ## Overview
 """
 
+MARKDOWN_WITH_COLAB_BUTTON = """# Module google/text-embedding-model/1
+One line description.
+<!-- asset-path: legacy -->
+<!-- module-type: text-embedding -->
+<!-- fine-tunable: true -->
+<!-- format: saved_model_2 -->
+
+[![Open Colab notebook]](https://colab.research.google.com)
+
+## Overview
+"""
+
+MARKDOWN_WITH_DEMO_BUTTON = """# Module google/text-embedding-model/1
+One line description.
+<!-- asset-path: legacy -->
+<!-- module-type: text-embedding -->
+<!-- fine-tunable: true -->
+<!-- format: saved_model_2 -->
+
+[![Open Demo]](https://teachablemachine.withgoogle.com/train/pose)
+
+## Overview
+"""
+
 MARKDOWN_WITH_UNEXPECTED_LINES = """# Module google/text-embedding-model/1
 One line description.
 <!-- module-type: text-embedding -->
@@ -511,6 +535,22 @@ class ValidatorTest(tf.test.TestCase):
     filesystem = MockFilesystem()
     filesystem.set_contents("root/google/models/model/1.md",
                             MINIMAL_MARKDOWN_WITH_ALLOWED_LICENSE)
+    self.set_up_publisher_page(filesystem, "google")
+    validator.validate_documentation_files(
+        documentation_dir="root", filesystem=filesystem)
+
+  def test_markdown_colab_button(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/model/1.md",
+                            MARKDOWN_WITH_COLAB_BUTTON)
+    self.set_up_publisher_page(filesystem, "google")
+    validator.validate_documentation_files(
+        documentation_dir="root", filesystem=filesystem)
+
+  def test_markdown_demo_button(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/model/1.md",
+                            MARKDOWN_WITH_DEMO_BUTTON)
     self.set_up_publisher_page(filesystem, "google")
     validator.validate_documentation_files(
         documentation_dir="root", filesystem=filesystem)

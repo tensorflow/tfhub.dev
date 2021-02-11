@@ -388,6 +388,11 @@ class DocumentationParser(object):
         # Colab.
         self._current_index += 1
         continue
+      if self._lines[self._current_index].startswith(
+          "[![Open Demo]]"):
+        # Demo button.
+        self._current_index += 1
+        continue
       # Not an empty line and not expected metadata.
       self.raise_error(
           "Unexpected line found: \"%s\". Please refer to [README.md]"

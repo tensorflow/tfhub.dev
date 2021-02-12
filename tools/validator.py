@@ -434,9 +434,9 @@ class DocumentationParser(object):
     if "license" in self._parsed_metadata:
       license_id = list(self._parsed_metadata["license"])[0]
       allowed_license_ids = [
-          "Apache-2.0", "BSD-3-Clause", "BSD-2-Clause", "GPL-2.0", "GPL-3.0",
-          "LGPL-2.0", "LGPL-2.1", "LGPL-3.0", "MIT", "MPL-2.0", "CDDL-1.0",
-          "EPL-2.0", "custom"
+          "Apache-2.0", "BSD-3-Clause", "BSD-2-Clause", "CC-BY-NC-4.0",
+          "GPL-2.0", "GPL-3.0", "LGPL-2.0", "LGPL-2.1", "LGPL-3.0", "MIT",
+          "MPL-2.0", "CDDL-1.0", "EPL-2.0", "custom"
       ]
       if license_id not in allowed_license_ids:
         self.raise_error(

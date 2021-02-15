@@ -62,7 +62,6 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type:   text-embedding   -->
-<!-- format: saved_model_2 -->
 """
 
 MINIMAL_MARKDOWN_LITE_TEMPLATE = """# Lite google/text-embedding-model/lite/1
@@ -71,6 +70,17 @@ multiple lines.
 
 <!-- asset-path: %s -->
 <!-- parent-model: google/text-embedding-model/1 -->
+
+## Overview
+"""
+
+MINIMAL_MARKDOWN_LITE_WITH_FORBIDDEN_FORMAT = """# Lite google/model/lite/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model -->
+<!-- parent-model: google/text-embedding-model/1 -->
+<!-- format: saved_model -->
 
 ## Overview
 """
@@ -143,6 +153,18 @@ Simple description.
 ## Overview
 """
 
+MINIMAL_MARKDOWN_WITH_UNSUPPORTED_FORMAT = """# Module google/model/1
+Simple description.
+
+<!-- asset-path: /path/to/model -->
+<!-- module-type: text-embedding -->
+<!-- fine-tunable: true -->
+<!-- format: unsupported -->
+<!-- license: Apache-2.0 -->
+
+## Overview
+"""
+
 MARKDOWN_WITH_DOUBLE_SLASH_IN_HANDLE = """# Module google/model//1
 Simple description.
 """
@@ -152,6 +174,10 @@ Simple description.
 """
 
 MARKDOWN_WITH_MISSING_MODEL_IN_HANDLE = """# Module google/1
+Simple description.
+"""
+
+MARKDOWN_WITH_MISSING_VERSION_IN_HANDLE = """# Module google/model
 Simple description.
 """
 
@@ -392,7 +418,7 @@ class ValidatorTest(tf.test.TestCase):
     filesystem.set_contents("root/google/models/wrong-extension/1.mdz",
                             self.minimal_markdown)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 r".*end with \"\.md.\"*"):
+                                 r".*end with '\.md.'*"):
       validator.validate_documentation_files(
           documentation_dir="root", filesystem=filesystem)
 
@@ -414,7 +440,8 @@ class ValidatorTest(tf.test.TestCase):
   def test_markdown_with_bad_handle(self):
     for markdown in [
         MARKDOWN_WITH_DOUBLE_SLASH_IN_HANDLE, MARKDOWN_WITH_BAD_CHARS_IN_HANDLE,
-        MARKDOWN_WITH_MISSING_MODEL_IN_HANDLE
+        MARKDOWN_WITH_MISSING_MODEL_IN_HANDLE,
+        MARKDOWN_WITH_MISSING_VERSION_IN_HANDLE
     ]:
       filesystem = MockFilesystem()
       filesystem.set_contents("root/google/models/model/1.md", markdown)
@@ -438,6 +465,16 @@ class ValidatorTest(tf.test.TestCase):
                             MARKDOWN_WITH_MISSING_METADATA)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*missing.*fine-tunable.*module-type.*"):
+      validator.validate_documentation_files(
+          documentation_dir="root", filesystem=filesystem)
+
+  def test_markdown_with_unsupported_format_metadata(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                            MINIMAL_MARKDOWN_WITH_UNSUPPORTED_FORMAT)
+    with self.assertRaisesRegexp(
+        validator.MarkdownDocumentationError, "The 'format' metadata.*but "
+        "was 'unsupported'."):
       validator.validate_documentation_files(
           documentation_dir="root", filesystem=filesystem)
 
@@ -572,6 +609,17 @@ class ValidatorTest(tf.test.TestCase):
     self.set_up_publisher_page(filesystem, "google")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*metadata has to start with.*"):
+      validator.validate_documentation_files(
+          documentation_dir="root", filesystem=filesystem)
+
+  def test_markdown_with_forbidden_format_metadata(self):
+    filesystem = MockFilesystem()
+    filesystem.set_contents("root/google/models/model/1.md",
+                            MINIMAL_MARKDOWN_LITE_WITH_FORBIDDEN_FORMAT)
+    self.set_up_publisher_page(filesystem, "google")
+    with self.assertRaisesRegexp(
+        validator.MarkdownDocumentationError,
+        ".*/1.md: 'format' should only be set for SavedModels."):
       validator.validate_documentation_files(
           documentation_dir="root", filesystem=filesystem)
 

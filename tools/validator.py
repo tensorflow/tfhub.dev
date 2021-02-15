@@ -76,10 +76,13 @@ PUBLISHER_HANDLE_PATTERN = r"# Publisher (?P<publisher>[\w-]+)"
 COLLECTION_HANDLE_PATTERN = (
     r"# Collection (?P<publisher>[\w-]+)/(?P<name>(\w|-|/|&|;|\.)+)/(\d+)")
 # Regex pattern for the line of the documentation describing model metadata.
-# Example: "<!-- finetunable: true -->"
+# Example: "<!-- fine-tunable: true -->"
 # Note: Both key and value consumes free space characters, but later on these
 # are stripped.
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
+
+# Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
+SAVED_MODEL_FORMATS = ("hub", "saved_model", "saved_model_2")
 
 # Map a handle pattern to the corresponding model type name.
 HANDLE_PATTERN_TO_MODEL_TYPE = {
@@ -133,7 +136,7 @@ def _validate_file_paths(model_dir):
   valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
   for filepath in _recursive_list_dir(model_dir):
     if not valid_path_regex.fullmatch(filepath):
-      raise MarkdownDocumentationError(f'Invalid filepath in asset: {filepath}')
+      raise MarkdownDocumentationError(f"Invalid filepath in asset: {filepath}")
 
 
 class ParsingPolicy(object):
@@ -152,7 +155,7 @@ class ParsingPolicy(object):
 
   @property
   def handle(self):
-    return "%s/%s/%s" % (self._publisher, self._model_name, self._model_version)
+    return f"{self._publisher}/{self._model_name}/{self._model_version}"
 
   @property
   def publisher(self):
@@ -204,7 +207,7 @@ class ModelParsingPolicy(ParsingPolicy):
     elif self._model_type in ("Lite", "Tfjs", "Coral"):
       self._metadata_properties = ["asset-path", "parent-model"]
     else:
-      self.raise_error("Unexpected model type: %s", self._model_type)
+      self.raise_error(f"Unexpected model type: {self._model_type}")
 
   @property
   def type_name(self):
@@ -264,7 +267,7 @@ class DocumentationParser(object):
     return self._parsed_metadata
 
   def raise_error(self, message):
-    message_with_file = "Error at file %s: %s" % (self._file_path, message)
+    message_with_file = f"Error at file {self._file_path}: {message}"
     raise MarkdownDocumentationError(message_with_file)
 
   def consume_first_line(self):
@@ -295,18 +298,15 @@ class DocumentationParser(object):
     self.raise_error(
         "First line of the documentation file must match one of the following "
         "formats depending on the MD type:\n"
-        "TF Model: %s\n"
-        "TFJS: %s\n"
-        "Lite: %s\n"
-        "Coral: %s\n"
-        "Publisher: %s\n"
-        "Collection: %s\n"
-        "Placeholder: %s\n"
-        "For example \"# Module google/text-embedding-model/1\". Instead the "
-        "first line is \"%s\"." %
-        (MODEL_HANDLE_PATTERN, TFJS_HANDLE_PATTERN, LITE_HANDLE_PATTERN,
-         CORAL_HANDLE_PATTERN, PUBLISHER_HANDLE_PATTERN,
-         COLLECTION_HANDLE_PATTERN, PLACEHOLDER_HANDLE_PATTERN, first_line))
+        f"TF Model: {MODEL_HANDLE_PATTERN}\n"
+        f"TFJS: {TFJS_HANDLE_PATTERN}\n"
+        f"Lite: {LITE_HANDLE_PATTERN}\n"
+        f"Coral: {CORAL_HANDLE_PATTERN}\n"
+        f"Publisher: {PUBLISHER_HANDLE_PATTERN}\n"
+        f"Collection: {COLLECTION_HANDLE_PATTERN}\n"
+        f"Placeholder: {PLACEHOLDER_HANDLE_PATTERN}\n"
+        "For example '# Module google/text-embedding-model/1'. Instead the "
+        f"first line is '{first_line}'")
 
   def assert_publisher_page_exists(self):
     """Assert that publisher page exists for the publisher of this model."""
@@ -318,8 +318,8 @@ class DocumentationParser(object):
         self._documentation_dir)
     if not self._filesystem.file_exists(expected_publisher_doc_location):
       self.raise_error(
-          "Publisher documentation does not exist. It should be added to %s." %
-          expected_publisher_doc_location)
+          "Publisher documentation does not exist. "
+          f"It should be added to {expected_publisher_doc_location}.")
 
   def assert_correct_location(self):
     """Assert that documentation file is submitted to a correct location."""
@@ -329,22 +329,22 @@ class DocumentationParser(object):
     if expected_file_path and self._file_path != expected_file_path:
       self.raise_error(
           "Documentation file is not on a correct path. Documentation for a "
-          "%s with handle \"%s\" should be submitted to \"%s\" " %
-          (self._parsing_policy.type_name, self._parsing_policy.handle,
-           expected_file_path))
+          f"{self._parsing_policy.type_name} with handle "
+          f"'{self._parsing_policy.handle}' should be submitted to "
+          f"'{expected_file_path}'")
 
     publisher_dir = self._parsing_policy.get_top_level_dir(
         self._documentation_dir)
     if not self._file_path.startswith(publisher_dir + "/"):
       self.raise_error(
           "Documentation file is not on a correct path. Documentation for a "
-          "%s with handle \"%s\" should be placed in the publisher "
-          "directory: \"%s\"" % (self._parsing_policy.type_name,
-                                 self._parsing_policy.handle, publisher_dir))
+          f"{self._parsing_policy.type_name} with handle "
+          f"'{self._parsing_policy.handle}' should be placed in the publisher "
+          f"directory: '{publisher_dir}'")
 
     if not self._file_path.endswith(".md"):
-      self.raise_error("Documentation file does not end with \".md\": %s" %
-                       self._file_path)
+      self.raise_error(
+          f"Documentation file does not end with '.md': {self._file_path}")
 
   def consume_description(self):
     """Consume second line with a short model description."""
@@ -352,7 +352,7 @@ class DocumentationParser(object):
     if not first_description_line:
       self.raise_error(
           "Second line of the documentation file has to contain a short "
-          "description. For example \"Word2vec text embedding model.\".")
+          "description. For example 'Word2vec text embedding model.'.")
     self._parsed_description = self._lines[1]
     self._current_index = 2
     while self._lines[self._current_index] and not self._lines[
@@ -395,10 +395,10 @@ class DocumentationParser(object):
         continue
       # Not an empty line and not expected metadata.
       self.raise_error(
-          "Unexpected line found: \"%s\". Please refer to [README.md]"
+          f"Unexpected line found: '{self._lines[self._current_index]}'. "
+          "Please refer to [README.md]"
           "(https://github.com/tensorflow/tfhub.dev/blob/master/README.md) "
-          "for information about markdown format." %
-          self._lines[self._current_index])
+          "for information about markdown format.")
 
   def assert_correct_metadata(self):
     """Assert that all required metadata is present."""
@@ -407,8 +407,8 @@ class DocumentationParser(object):
     if not provided_metadata.issuperset(required_metadata):
       self.raise_error(
           "The MD file is missing the following required metadata properties: "
-          "%s. Please refer  to README.md for information about markdown "
-          "format." % sorted(required_metadata.difference(provided_metadata)))
+          f"{sorted(required_metadata.difference(provided_metadata))}. "
+          "Please refer to README.md for information about markdown format.")
 
     duplicate_metadata = list()
     for key, values in self._parsed_metadata.items():
@@ -419,15 +419,24 @@ class DocumentationParser(object):
       self.raise_error(
           "There are duplicate metadata values. Please refer to "
           "README.md for information about markdown format. In particular the "
-          "duplicated metadata are: %s" % sorted(duplicate_metadata))
+          f"duplicated metadata are: {sorted(duplicate_metadata)}")
 
     if "module-type" in self._parsed_metadata:
       allowed_prefixes = ["image-", "text-", "audio-", "video-"]
       for value in self._parsed_metadata["module-type"]:
         if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
           self.raise_error(
-              "The \"module-type\" metadata has to start with any of \"image-\""
-              ", \"text\", \"audio-\", \"video-\", but is: \"%s\"" % value)
+              "The 'module-type' metadata has to start with any of 'image-', "
+              f"'text', 'audio-', 'video-', but is: '{value}'")
+
+    format_key = "format"
+    if format_key in self._parsed_metadata:
+      if self._parsing_policy.type_name != "Module":
+        self.raise_error("'format' should only be set for SavedModels.")
+      format_value = list(self._parsed_metadata[format_key])[0]
+      if format_value not in SAVED_MODEL_FORMATS:
+        self.raise_error("The 'format' metadata should be one of "
+                         f"{SAVED_MODEL_FORMATS} but was '{format_value}'.")
 
   def assert_allowed_license(self):
     """Validate provided license."""
@@ -440,14 +449,14 @@ class DocumentationParser(object):
       ]
       if license_id not in allowed_license_ids:
         self.raise_error(
-            "The license %s provided in metadata is not allowed. Please "
-            "specify a license id from list of allowed ids: [%s]. Example: "
-            "<!-- license: Apache-2.0 -->" % (license_id, allowed_license_ids))
+            f"The license {license_id} provided in metadata is not allowed. "
+            "Please specify a license id from list of allowed ids: "
+            f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
 
   def _is_asset_path_modified(self):
     """Return True if the asset-path tag has been added or modified."""
     # pylint: disable=subprocess-run-check
-    command = "git diff %s | grep \"+<!-- asset-path:\"" % self._file_path
+    command = f"git diff {self._file_path} | grep '+<!-- asset-path:'"
     result = subprocess.run(command, shell=True)
     # grep exits with code 1 if it cannot find "+<!-- asset-path" in `git diff`.
     # Raise an error if the exit code is not 0 or 1.
@@ -456,8 +465,8 @@ class DocumentationParser(object):
     elif result.returncode == 1:
       return False
     else:
-      self.raise_error("%s returned unexpected exit code %s" %
-                       (command, result.returncode))
+      self.raise_error(
+          f"{command} returned unexpected exit code {result.returncode}")
 
   def smoke_test_asset(self):
     """Smoke test asset provided on asset-path metadata."""
@@ -477,9 +486,9 @@ class DocumentationParser(object):
         "https://github.com/.*/releases/download/.*")
     if github_download_url_regex.fullmatch(asset_path):
       self.raise_error(
-          "The asset-path %s is a url that cannot be automatically fetched. "
-          "Please provide an asset-path that is allowed to be fetched by its "
-          "robots.txt." % asset_path)
+          f"The asset-path {asset_path} is a url that cannot be automatically "
+          "fetched. Please provide an asset-path that is allowed to be fetched "
+          "by its robots.txt.")
 
     if self._parsing_policy.type_name != "Module":
       return
@@ -487,11 +496,10 @@ class DocumentationParser(object):
     passed, reason = asset_tester(asset_path)
     if not passed:
       self.raise_error(
-          "The model on path %s failed to parse. Please make sure that the "
-          "asset-path metadata points to a valid TF2 SavedModel or a TF1 Hub "
-          "module, compressed as described in section \"Model\" of "
-          "README.md. Underlying reason for failure: %s." %
-          (asset_path, reason))
+          f"The model on path {asset_path} failed to parse. Please make sure "
+          "that the asset-path metadata points to a valid TF2 SavedModel or a "
+          "TF1 Hub module, compressed as described in section 'Model' of "
+          f"README.md. Underlying reason for failure: {reason}.")
 
   def validate(self, file_path, do_smoke_test):
     """Validate one documentation markdown file."""
@@ -530,7 +538,7 @@ def validate_documentation_files(documentation_dir,
     logging.info(
         "No models were smoke tested. To download and smoke test a specific "
         "model, specify files directly in the command line, for example: "
-        "\"python tools/validator.py vtab/models/wae-ukl/1.md\"")
+        "'python tools/validator.py vtab/models/wae-ukl/1.md'")
   return validated
 
 

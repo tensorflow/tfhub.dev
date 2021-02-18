@@ -122,16 +122,6 @@ class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
 
 
-def smoke_test_model(model_path):
-  try:
-    resolved_model = hub.resolve(model_path)
-    loader_impl.parse_saved_model(resolved_model)
-    _validate_file_paths(resolved_model)
-  except Exception as e:  # pylint: disable=broad-except
-    return False, e
-  return True, None
-
-
 def _validate_file_paths(model_dir):
   valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
   for filepath in _recursive_list_dir(model_dir):
@@ -140,13 +130,19 @@ def _validate_file_paths(model_dir):
 
 
 class ParsingPolicy(object):
-  """The base class for type specific parsing policy."""
-  __metaclass__ = abc.ABCMeta
+  """The base class for type specific parsing policies.
 
-  def __init__(self, publisher, model_name, model_version):
+  Documentation files for models, placeholders, publishers and collections share
+  a publisher field, a readable name, a correct file path etc.
+  """
+
+  def __init__(self, publisher, model_name, model_version, required_metadata,
+               optional_metadata):
     self._publisher = publisher
     self._model_name = model_name
     self._model_version = model_version
+    self._required_metadata = required_metadata
+    self._optional_metadata = optional_metadata
 
   @property
   @abc.abstractmethod
@@ -154,99 +150,202 @@ class ParsingPolicy(object):
     """Return readable name of the parsed type."""
 
   @property
-  def handle(self):
-    return f"{self._publisher}/{self._model_name}/{self._model_version}"
-
-  @property
   def publisher(self):
     return self._publisher
 
-  def get_expected_location(self, root_dir):
-    """Returns the expected path of a documentation file."""
-    del root_dir
-    return
+  @property
+  def supported_metadata(self):
+    """Return which metadata tags are supported."""
+    return self._required_metadata + self._optional_metadata
 
   def get_top_level_dir(self, root_dir):
     """Returns the top level publisher directory."""
     return os.path.join(root_dir, self._publisher)
 
-  def get_required_metadata(self):
-    """Return a list of required metadata for this type."""
-    return list()
+  def assert_correct_file_path(self, file_path, root_dir):
+    if not file_path.endswith(".md"):
+      raise MarkdownDocumentationError(
+          "Documentation file does not end with '.md': %s" % file_path)
 
-  def get_single_valued_metadata(self):
-    """Return a list of metadata attaining only one value for this type."""
-    return list()
+    publisher_dir = self.get_top_level_dir(root_dir)
+    if not file_path.startswith(publisher_dir + "/"):
+      raise MarkdownDocumentationError(
+          "Documentation file is not on a correct path. Documentation for a "
+          f"{self.type_name} with publisher '{self._publisher}' should be "
+          f"placed in the publisher directory: '{publisher_dir}'")
 
-  def asset_tester(self):
-    """Return a function that smoke tests an asset.
+  def assert_can_resolve_asset(self, asset_path):
+    """Check whether the asset path can be resolved."""
+    pass
 
-    This function takes asset path on input and returns a tuple
-    (passed, reason), where passed==True iff the asset passes a smoke test and
-    reason is None for passed==True, or reason for failing if passed==False.
+  def assert_metadata_contains_required_fields(self, metadata):
+    required_metadata = set(self._required_metadata)
+    provided_metadata = set(metadata.keys())
+    if not provided_metadata.issuperset(required_metadata):
+      raise MarkdownDocumentationError(
+          "The MD file is missing the following required metadata properties: "
+          "%s. Please refer to README.md for information about markdown "
+          "format." % sorted(required_metadata.difference(provided_metadata)))
 
-    Returns:
-      A function that smoke tests an asset.
-    """
-    return lambda _: True, None
+  def assert_metadata_contains_supported_fields(self, metadata):
+    supported_metadata = set(self.supported_metadata)
+    provided_metadata = set(metadata.keys())
+    if not supported_metadata.issuperset(provided_metadata):
+      raise MarkdownDocumentationError(
+          "The MD file contains unsupported metadata properties: "
+          f"{sorted(provided_metadata.difference(supported_metadata))}. Please "
+          "refer to README.md for information about markdown format.")
 
+  def assert_no_duplicate_metadata(self, metadata):
+    duplicate_metadata = list()
+    for key, values in metadata.items():
+      if key in self.supported_metadata and len(values) > 1:
+        duplicate_metadata.append(key)
+    if duplicate_metadata:
+      raise MarkdownDocumentationError(
+          "There are duplicate metadata values. Please refer to "
+          "README.md for information about markdown format. In particular the "
+          f"duplicated metadata are: {sorted(duplicate_metadata)}")
 
-class ModelParsingPolicy(ParsingPolicy):
-  """ParsingPolicy for model documentation."""
+  def assert_correct_module_types(self, metadata):
+    if "module-type" in metadata:
+      allowed_prefixes = ["image-", "text-", "audio-", "video-"]
+      for value in metadata["module-type"]:
+        if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
+          raise MarkdownDocumentationError(
+              "The 'module-type' metadata has to start with any of 'image-'"
+              ", 'text', 'audio-', 'video-', but is: '{value}'")
 
-  def __init__(self, publisher, model_name, model_version, model_type):
-    super(ModelParsingPolicy, self).__init__(publisher, model_name,
-                                             model_version)
-    self._model_type = model_type
-    if self._model_type == "Module":
-      self._metadata_properties = [
-          "asset-path", "module-type", "fine-tunable", "format"
-      ]
-    elif self._model_type == "Placeholder":
-      self._metadata_properties = ["module-type"]
-    elif self._model_type in ("Lite", "Tfjs", "Coral"):
-      self._metadata_properties = ["asset-path", "parent-model"]
-    else:
-      self.raise_error(f"Unexpected model type: {self._model_type}")
-
-  @property
-  def type_name(self):
-    return self._model_type
-
-  def get_required_metadata(self):
-    return self._metadata_properties
-
-  def get_single_valued_metadata(self):
-    return self._metadata_properties
-
-  def asset_tester(self):
-    return smoke_test_model
-
-
-class PublisherParsingPolicy(ParsingPolicy):
-  """ParsingPolicy for publisher documentation."""
-
-  @property
-  def type_name(self):
-    return "Publisher"
-
-  @property
-  def handle(self):
-    return self._publisher
-
-  def get_expected_location(self, root_dir):
-    return os.path.join(root_dir, self._publisher, self._publisher + ".md")
+  def assert_correct_metadata(self, metadata):
+    """Assert that correct metadata is present."""
+    self.assert_metadata_contains_required_fields(metadata)
+    self.assert_metadata_contains_supported_fields(metadata)
+    self.assert_no_duplicate_metadata(metadata)
+    self.assert_correct_module_types(metadata)
 
 
 class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
+  def __init__(self, publisher, model_name, model_version):
+    super(CollectionParsingPolicy,
+          self).__init__(publisher, model_name, model_version, ["module-type"],
+                         ["dataset", "language", "network-architecture"])
+
   @property
   def type_name(self):
     return "Collection"
 
-  def get_required_metadata(self):
-    return ["module-type"]
+
+class PlaceholderParsingPolicy(ParsingPolicy):
+  """ParsingPolicy for placeholder files."""
+
+  def __init__(self, publisher, model_name, model_version):
+    super(PlaceholderParsingPolicy, self).__init__(
+        publisher, model_name, model_version, ["module-type"], [
+            "dataset", "fine-tunable", "interactive-model-name", "language",
+            "license", "network-architecture"
+        ])
+
+  @property
+  def type_name(self):
+    return "Placeholder"
+
+
+class SavedModelParsingPolicy(ParsingPolicy):
+  """ParsingPolicy for SavedModel documentation."""
+
+  def __init__(self, publisher, model_name, model_version):
+    super(SavedModelParsingPolicy, self).__init__(
+        publisher, model_name, model_version,
+        ["asset-path", "module-type", "fine-tunable", "format"], [])
+
+  @property
+  def type_name(self):
+    return "Module"
+
+  def assert_correct_metadata(self, metadata):
+    self.assert_metadata_contains_required_fields(metadata)
+    self.assert_no_duplicate_metadata(metadata)
+    self.assert_correct_module_types(metadata)
+
+    format_value = list(metadata["format"])[0]
+    if format_value not in SAVED_MODEL_FORMATS:
+      raise MarkdownDocumentationError(
+          f"The 'format' metadata should be one of {SAVED_MODEL_FORMATS} "
+          f"but was '{format_value}'.")
+
+  def assert_can_resolve_asset(self, asset_path):
+    """Attempt to hub.resolve the given asset path."""
+    try:
+      resolved_model = hub.resolve(asset_path)
+      loader_impl.parse_saved_model(resolved_model)
+      _validate_file_paths(resolved_model)
+    except Exception as e:  # pylint: disable=broad-except
+      raise MarkdownDocumentationError(
+          f"The model on path {asset_path} failed to parse. Please make sure "
+          "that the asset-path metadata points to a valid TF2 SavedModel or a "
+          "TF1 Hub module, compressed as described in section 'Model' of "
+          f"README.md. Underlying reason for failure: {e}.")
+
+
+class TfjsParsingPolicy(ParsingPolicy):
+  """ParsingPolicy for TF.js documentation."""
+
+  def __init__(self, publisher, model_name, model_version):
+    super(TfjsParsingPolicy,
+          self).__init__(publisher, model_name, model_version,
+                         ["asset-path", "parent-model"], [])
+
+  @property
+  def type_name(self):
+    return "Tfjs"
+
+
+class LiteParsingPolicy(TfjsParsingPolicy):
+  """ParsingPolicy for TFLite documentation."""
+
+  @property
+  def type_name(self):
+    return "Lite"
+
+
+class CoralParsingPolicy(TfjsParsingPolicy):
+  """ParsingPolicy for Coral documentation."""
+
+  @property
+  def type_name(self):
+    return "Coral"
+
+
+class PublisherParsingPolicy(ParsingPolicy):
+  """ParsingPolicy for publisher documentation.
+
+  Publisher files should always be at root/publisher/publisher.md and they
+  should not contain a 'format' tag as it has no effect.
+  """
+
+  def __init__(self, publisher, model_name, model_version):
+    super(PublisherParsingPolicy, self).__init__(publisher, model_name,
+                                                 model_version, [], [])
+
+  @property
+  def type_name(self):
+    return "Publisher"
+
+  def get_expected_file_path(self, root_dir):
+    """Returns the expected path of the documentation file."""
+    return os.path.join(root_dir, self._publisher, self._publisher + ".md")
+
+  def assert_correct_file_path(self, file_path, root_dir):
+    """Extend base method by also checking for /publisher/publisher.md."""
+    expected_file_path = self.get_expected_file_path(root_dir)
+    if expected_file_path and file_path != expected_file_path:
+      raise MarkdownDocumentationError(
+          "Documentation file is not on a correct path. Documentation for the "
+          f"publisher '{self.publisher}' should be submitted to "
+          f"'{expected_file_path}'")
+    super().assert_correct_file_path(file_path, root_dir)
 
 
 class DocumentationParser(object):
@@ -257,6 +356,9 @@ class DocumentationParser(object):
     self._filesystem = filesystem
     self._parsed_metadata = dict()
     self._parsed_description = ""
+    self._file_path = ""
+    self._lines = []
+    self._current_index = 0
 
   @property
   def parsed_description(self):
@@ -270,15 +372,14 @@ class DocumentationParser(object):
     message_with_file = f"Error at file {self._file_path}: {message}"
     raise MarkdownDocumentationError(message_with_file)
 
-  def consume_first_line(self):
-    """Consume first line describing the model type and handle."""
-    first_line = self._lines[0].replace("&zwnj;", "")
+  def get_policy_from_first_line(self, first_line):
+    """Return an appropriate ParsingPolicy instance for the first line."""
     patterns_and_policies = [
-        (MODEL_HANDLE_PATTERN, ModelParsingPolicy),
-        (PLACEHOLDER_HANDLE_PATTERN, ModelParsingPolicy),
-        (LITE_HANDLE_PATTERN, ModelParsingPolicy),
-        (TFJS_HANDLE_PATTERN, ModelParsingPolicy),
-        (CORAL_HANDLE_PATTERN, ModelParsingPolicy),
+        (MODEL_HANDLE_PATTERN, SavedModelParsingPolicy),
+        (PLACEHOLDER_HANDLE_PATTERN, PlaceholderParsingPolicy),
+        (LITE_HANDLE_PATTERN, LiteParsingPolicy),
+        (TFJS_HANDLE_PATTERN, TfjsParsingPolicy),
+        (CORAL_HANDLE_PATTERN, CoralParsingPolicy),
         (PUBLISHER_HANDLE_PATTERN, PublisherParsingPolicy),
         (COLLECTION_HANDLE_PATTERN, CollectionParsingPolicy),
     ]
@@ -287,14 +388,9 @@ class DocumentationParser(object):
       if not match:
         continue
       groups = match.groupdict()
-      if policy == ModelParsingPolicy:
-        self._parsing_policy = policy(
-            groups.get("publisher"), groups.get("name"), groups.get("vers"),
-            HANDLE_PATTERN_TO_MODEL_TYPE[pattern])
-      else:
-        self._parsing_policy = policy(
-            groups.get("publisher"), groups.get("name"), groups.get("vers"))
-      return
+      return policy(
+          groups.get("publisher"), groups.get("name"), groups.get("vers"))
+
     self.raise_error(
         "First line of the documentation file must match one of the following "
         "formats depending on the MD type:\n"
@@ -311,49 +407,22 @@ class DocumentationParser(object):
   def assert_publisher_page_exists(self):
     """Assert that publisher page exists for the publisher of this model."""
     # Use a publisher policy to get the expected documentation page path.
-    publisher_policy = PublisherParsingPolicy(self._parsing_policy.publisher,
-                                              self._parsing_policy.publisher,
-                                              None)
-    expected_publisher_doc_location = publisher_policy.get_expected_location(
+    publisher_policy = PublisherParsingPolicy(self.policy.publisher, None, None)
+    expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
         self._documentation_dir)
-    if not self._filesystem.file_exists(expected_publisher_doc_location):
+    if not self._filesystem.file_exists(expected_publisher_doc_file_path):
       self.raise_error(
           "Publisher documentation does not exist. "
-          f"It should be added to {expected_publisher_doc_location}.")
-
-  def assert_correct_location(self):
-    """Assert that documentation file is submitted to a correct location."""
-    expected_file_path = self._parsing_policy.get_expected_location(
-        self._documentation_dir)
-    # Exact location must be enforced for some types (publishers).
-    if expected_file_path and self._file_path != expected_file_path:
-      self.raise_error(
-          "Documentation file is not on a correct path. Documentation for a "
-          f"{self._parsing_policy.type_name} with handle "
-          f"'{self._parsing_policy.handle}' should be submitted to "
-          f"'{expected_file_path}'")
-
-    publisher_dir = self._parsing_policy.get_top_level_dir(
-        self._documentation_dir)
-    if not self._file_path.startswith(publisher_dir + "/"):
-      self.raise_error(
-          "Documentation file is not on a correct path. Documentation for a "
-          f"{self._parsing_policy.type_name} with handle "
-          f"'{self._parsing_policy.handle}' should be placed in the publisher "
-          f"directory: '{publisher_dir}'")
-
-    if not self._file_path.endswith(".md"):
-      self.raise_error(
-          f"Documentation file does not end with '.md': {self._file_path}")
+          f"It should be added to {expected_publisher_doc_file_path}.")
 
   def consume_description(self):
     """Consume second line with a short model description."""
     first_description_line = self._lines[1]
     if not first_description_line:
-      self.raise_error(
+      raise MarkdownDocumentationError(
           "Second line of the documentation file has to contain a short "
           "description. For example 'Word2vec text embedding model.'.")
-    self._parsed_description = self._lines[1]
+    self._parsed_description = first_description_line
     self._current_index = 2
     while self._lines[self._current_index] and not self._lines[
         self._current_index].startswith("<!--"):
@@ -394,49 +463,11 @@ class DocumentationParser(object):
         self._current_index += 1
         continue
       # Not an empty line and not expected metadata.
-      self.raise_error(
+      raise MarkdownDocumentationError(
           f"Unexpected line found: '{self._lines[self._current_index]}'. "
           "Please refer to [README.md]"
           "(https://github.com/tensorflow/tfhub.dev/blob/master/README.md) "
           "for information about markdown format.")
-
-  def assert_correct_metadata(self):
-    """Assert that all required metadata is present."""
-    required_metadata = set(self._parsing_policy.get_required_metadata())
-    provided_metadata = set(self._parsed_metadata.keys())
-    if not provided_metadata.issuperset(required_metadata):
-      self.raise_error(
-          "The MD file is missing the following required metadata properties: "
-          f"{sorted(required_metadata.difference(provided_metadata))}. "
-          "Please refer to README.md for information about markdown format.")
-
-    duplicate_metadata = list()
-    for key, values in self._parsed_metadata.items():
-      if key in self._parsing_policy.get_single_valued_metadata(
-      ) and len(values) > 1:
-        duplicate_metadata.append(key)
-    if duplicate_metadata:
-      self.raise_error(
-          "There are duplicate metadata values. Please refer to "
-          "README.md for information about markdown format. In particular the "
-          f"duplicated metadata are: {sorted(duplicate_metadata)}")
-
-    if "module-type" in self._parsed_metadata:
-      allowed_prefixes = ["image-", "text-", "audio-", "video-"]
-      for value in self._parsed_metadata["module-type"]:
-        if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
-          self.raise_error(
-              "The 'module-type' metadata has to start with any of 'image-', "
-              f"'text', 'audio-', 'video-', but is: '{value}'")
-
-    format_key = "format"
-    if format_key in self._parsed_metadata:
-      if self._parsing_policy.type_name != "Module":
-        self.raise_error("'format' should only be set for SavedModels.")
-      format_value = list(self._parsed_metadata[format_key])[0]
-      if format_value not in SAVED_MODEL_FORMATS:
-        self.raise_error("The 'format' metadata should be one of "
-                         f"{SAVED_MODEL_FORMATS} but was '{format_value}'.")
 
   def assert_allowed_license(self):
     """Validate provided license."""
@@ -489,28 +520,26 @@ class DocumentationParser(object):
           f"The asset-path {asset_path} is a url that cannot be automatically "
           "fetched. Please provide an asset-path that is allowed to be fetched "
           "by its robots.txt.")
-
-    if self._parsing_policy.type_name != "Module":
-      return
-    asset_tester = self._parsing_policy.asset_tester()
-    passed, reason = asset_tester(asset_path)
-    if not passed:
-      self.raise_error(
-          f"The model on path {asset_path} failed to parse. Please make sure "
-          "that the asset-path metadata points to a valid TF2 SavedModel or a "
-          "TF1 Hub module, compressed as described in section 'Model' of "
-          f"README.md. Underlying reason for failure: {reason}.")
+    self.policy.assert_can_resolve_asset(asset_path)
 
   def validate(self, file_path, do_smoke_test):
     """Validate one documentation markdown file."""
-    self._raw_content = self._filesystem.get_contents(file_path)
-    self._lines = self._raw_content.split("\n")
     self._file_path = file_path
-    self.consume_first_line()
-    self.assert_correct_location()
-    self.consume_description()
-    self.consume_metadata()
-    self.assert_correct_metadata()
+    raw_content = self._filesystem.get_contents(self._file_path)
+    self._lines = raw_content.split("\n")
+    first_line = self._lines[0].replace("&zwnj;", "")
+    self.policy = self.get_policy_from_first_line(first_line)
+
+    try:
+      self.policy.assert_correct_file_path(self._file_path,
+                                           self._documentation_dir)
+      # Populate _parsed_description with the description
+      self.consume_description()
+      # Populate _parsed_metadata with the metadata tag mapping
+      self.consume_metadata()
+      self.policy.assert_correct_metadata(self._parsed_metadata)
+    except MarkdownDocumentationError as e:
+      self.raise_error(e)
     self.assert_allowed_license()
     self.assert_publisher_page_exists()
     if do_smoke_test:

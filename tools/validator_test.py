@@ -57,11 +57,42 @@ multiple lines.
 ## Overview
 """
 
+MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: %s -->
+<!-- module-type:   text-embedding   -->
+<!-- fine-tunable:true -->
+<!-- format: saved_model_2 -->
+<!-- dataset: MNIST -->
+<!-- interactive-model-name: vision -->
+<!-- language: en -->
+<!-- network-architecture: BERT -->
+<!-- license: Apache-2.0 -->
+
+## Overview
+"""
+
+
 MINIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
 <!-- module-type:   text-embedding   -->
+"""
+
+MAXIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- dataset: MNIST -->
+<!-- fine-tunable:true -->
+<!-- interactive-model-name: vision -->
+<!-- language: en -->
+<!-- module-type:   text-embedding   -->
+<!-- network-architecture: BERT -->
+<!-- license: Apache-2.0 -->
 """
 
 MINIMAL_MARKDOWN_LITE_TEMPLATE = """# Lite google/text-embedding-model/lite/1
@@ -261,6 +292,18 @@ multiple lines.
 ## Overview
 """
 
+MAXIMAL_COLLECTION_MARKDOWN = """# Collection google/text-embedding-collection/1
+Simple description spanning
+multiple lines.
+
+<!-- module-type: text-embedding -->
+<!-- dataset: MNIST -->
+<!-- language: en -->
+<!-- network-architecture: BERT -->
+
+## Overview
+"""
+
 MINIMAL_PUBLISHER_MARKDOWN = """# Publisher %s
 Simple description spanning one line.
 
@@ -279,6 +322,7 @@ class ValidatorTest(tf.test.TestCase):
     self.not_a_model_path = os.path.join(self.tmp_dir, "not_a_model")
     self.save_dummy_model(self.model_path)
     self.minimal_markdown = MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
+    self.maximal_markdown = MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
     self.minimal_markdown_with_bad_model = (
         MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.not_a_model_path)
     self.asset_path_modified = mock.patch.object(
@@ -320,21 +364,26 @@ class ValidatorTest(tf.test.TestCase):
     self.assertAllEqual([tmp_file_path],
                         list(filesystem.recursive_list_dir(tmp_dir)))
 
-  def test_minimal_markdown_parsed_saved_model(self):
+  def test_markdown_parsed_saved_model(self):
     filesystem = MockFilesystem()
-    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
-                            self.minimal_markdown)
     self.set_up_publisher_page(filesystem, "google")
-    validator.validate_documentation_files(
-        documentation_dir="root", filesystem=filesystem)
+    for markdown in [self.minimal_markdown, self.maximal_markdown]:
+      filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                              markdown)
+      validator.validate_documentation_files(
+          documentation_dir="root", filesystem=filesystem)
 
-  def test_minimal_markdown_parsed_placeholder(self):
+  def test_markdown_parsed_placeholder(self):
     filesystem = MockFilesystem()
-    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
-                            MINIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE)
     self.set_up_publisher_page(filesystem, "google")
-    validator.validate_documentation_files(
-        documentation_dir="root", filesystem=filesystem)
+    for markdown in [
+        MINIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE,
+        MAXIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE
+    ]:
+      filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                              markdown)
+      validator.validate_documentation_files(
+          documentation_dir="root", filesystem=filesystem)
 
   def test_minimal_markdown_parsed_lite(self):
     filesystem = MockFilesystem()
@@ -371,14 +420,14 @@ class ValidatorTest(tf.test.TestCase):
         filesystem=filesystem)
     self.assertEqual(1, num_validated)
 
-  def test_minimal_collection_markdown_parsed(self):
+  def test_collection_markdown_parsed(self):
     filesystem = MockFilesystem()
-    filesystem.set_contents(
-        "root/google/collections/text-embedding-collection/1.md",
-        MINIMAL_COLLECTION_MARKDOWN)
     self.set_up_publisher_page(filesystem, "google")
-    validator.validate_documentation_files(
-        documentation_dir="root", filesystem=filesystem)
+    for markdown in [MINIMAL_COLLECTION_MARKDOWN, MAXIMAL_COLLECTION_MARKDOWN]:
+      filesystem.set_contents(
+          "root/google/collections/text-embedding-collection/1.md", markdown)
+      validator.validate_documentation_files(
+          documentation_dir="root", filesystem=filesystem)
 
   def test_minimal_publisher_markdown_parsed(self):
     filesystem = MockFilesystem()
@@ -619,7 +668,7 @@ class ValidatorTest(tf.test.TestCase):
     self.set_up_publisher_page(filesystem, "google")
     with self.assertRaisesRegexp(
         validator.MarkdownDocumentationError,
-        ".*/1.md: 'format' should only be set for SavedModels."):
+        r".*contains unsupported metadata properties: \['format'\].*"):
       validator.validate_documentation_files(
           documentation_dir="root", filesystem=filesystem)
 

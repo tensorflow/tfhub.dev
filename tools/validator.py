@@ -417,17 +417,20 @@ class DocumentationParser(object):
 
   def consume_description(self):
     """Consume second line with a short model description."""
-    first_description_line = self._lines[1]
-    if not first_description_line:
+    description_lines = []
+    self._current_index = 1
+    # Allow an empty line between handle and description.
+    if not self._lines[self._current_index]:
+      self._current_index += 1
+    while self._lines[self._current_index] and not self._lines[
+        self._current_index].startswith("<!--"):
+      description_lines.append(self._lines[self._current_index])
+      self._current_index += 1
+    self._parsed_description = " ".join(description_lines)
+    if not self._parsed_description:
       raise MarkdownDocumentationError(
           "Second line of the documentation file has to contain a short "
           "description. For example 'Word2vec text embedding model.'.")
-    self._parsed_description = first_description_line
-    self._current_index = 2
-    while self._lines[self._current_index] and not self._lines[
-        self._current_index].startswith("<!--"):
-      self._parsed_description += " " + self._lines[self._current_index]
-      self._current_index += 1
 
   def consume_metadata(self):
     """Consume all metadata."""

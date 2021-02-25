@@ -57,6 +57,19 @@ multiple lines.
 ## Overview
 """
 
+MARKDOWN_WITH_EMPTY_SECOND_LINE = """# Module google/text-embedding-model/1
+
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: %s -->
+<!-- module-type:   text-embedding   -->
+<!-- fine-tunable:true -->
+<!-- format: saved_model_2 -->
+
+## Overview
+"""
+
 MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
 Simple description spanning
 multiple lines.
@@ -220,6 +233,13 @@ MARKDOWN_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
 ## Overview
 """
 
+MARKDOWN_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK = """# Module google/text-embedding-model/1
+<!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
+<!-- format: saved_model_2 -->
+
+## Overview
+"""
+
 MARKDOWN_WITH_MISSING_METADATA = """# Module google/text-embedding-model/1
 One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
@@ -365,9 +385,12 @@ class ValidatorTest(tf.test.TestCase):
                         list(filesystem.recursive_list_dir(tmp_dir)))
 
   def test_markdown_parsed_saved_model(self):
-    filesystem = MockFilesystem()
-    self.set_up_publisher_page(filesystem, "google")
-    for markdown in [self.minimal_markdown, self.maximal_markdown]:
+    for markdown in [
+        self.minimal_markdown, self.maximal_markdown,
+        MARKDOWN_WITH_EMPTY_SECOND_LINE % self.model_path
+    ]:
+      filesystem = MockFilesystem()
+      self.set_up_publisher_page(filesystem, "google")
       filesystem.set_contents("root/google/models/text-embedding-model/1.md",
                               markdown)
       validator.validate_documentation_files(
@@ -501,12 +524,16 @@ class ValidatorTest(tf.test.TestCase):
 
   def test_markdown_without_description(self):
     filesystem = MockFilesystem()
-    filesystem.set_contents("root/google/models/text-embedding-model/1.md",
-                            MARKDOWN_WITHOUT_DESCRIPTION)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*has to contain a short description.*"):
-      validator.validate_documentation_files(
-          documentation_dir="root", filesystem=filesystem)
+    for markdown in [
+        MARKDOWN_WITHOUT_DESCRIPTION,
+        MARKDOWN_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK
+    ]:
+      filesystem.set_contents("root/google/models/text-embedding-model/1.md",
+                              markdown)
+      with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
+                                   ".*has to contain a short description.*"):
+        validator.validate_documentation_files(
+            documentation_dir="root", filesystem=filesystem)
 
   def test_markdown_with_missing_metadata(self):
     filesystem = MockFilesystem()

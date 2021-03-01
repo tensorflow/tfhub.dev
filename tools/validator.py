@@ -258,16 +258,17 @@ class SavedModelParsingPolicy(ParsingPolicy):
   def __init__(self, publisher, model_name, model_version):
     super(SavedModelParsingPolicy, self).__init__(
         publisher, model_name, model_version,
-        ["asset-path", "module-type", "fine-tunable", "format"], [])
+        ["asset-path", "module-type", "fine-tunable", "format"], [
+            "dataset", "interactive-model-name", "language", "license",
+            "network-architecture"
+        ])
 
   @property
   def type_name(self):
     return "Module"
 
   def assert_correct_metadata(self, metadata):
-    self.assert_metadata_contains_required_fields(metadata)
-    self.assert_no_duplicate_metadata(metadata)
-    self.assert_correct_module_types(metadata)
+    super().assert_correct_metadata(metadata)
 
     format_value = list(metadata["format"])[0]
     if format_value not in SAVED_MODEL_FORMATS:

@@ -70,6 +70,17 @@ multiple lines.
 ## Overview
 """
 
+MARKDOWN_SAVED_MODEL_UNSUPPORTED_TAG = """# Module google/model/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model -->
+<!-- module-type:   text-embedding   -->
+<!-- fine-tunable:true -->
+<!-- format: saved_model_2 -->
+<!-- unsupported_tag: value -->
+"""
+
 MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
 Simple description spanning
 multiple lines.
@@ -87,12 +98,19 @@ multiple lines.
 ## Overview
 """
 
-
 MINIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
 <!-- module-type:   text-embedding   -->
+"""
+
+MARKDOWN_PLACEHOLDER_UNSUPPORTED_TAG = """# Placeholder google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- module-type:   text-embedding   -->
+<!-- unsupported_tag: value -->
 """
 
 MAXIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-model/1
@@ -125,6 +143,17 @@ multiple lines.
 <!-- asset-path: /path/to/model -->
 <!-- parent-model: google/text-embedding-model/1 -->
 <!-- format: saved_model -->
+
+## Overview
+"""
+
+MINIMAL_MARKDOWN_LITE_WITH_UNSUPPORTED_TAG = """# Lite google/model/lite/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model -->
+<!-- parent-model: google/text-embedding-model/1 -->
+<!-- unsupported_tag: value -->
 
 ## Overview
 """
@@ -698,6 +727,22 @@ class ValidatorTest(tf.test.TestCase):
         r".*contains unsupported metadata properties: \['format'\].*"):
       validator.validate_documentation_files(
           documentation_dir="root", filesystem=filesystem)
+
+  def test_markdown_with_unsupported_metadata(self):
+    filesystem = MockFilesystem()
+    self.set_up_publisher_page(filesystem, "google")
+    for markdown in [
+        MARKDOWN_SAVED_MODEL_UNSUPPORTED_TAG,
+        MARKDOWN_PLACEHOLDER_UNSUPPORTED_TAG,
+        MINIMAL_MARKDOWN_LITE_WITH_UNSUPPORTED_TAG
+    ]:
+      filesystem.set_contents("root/google/models/model/1.md", markdown)
+      with self.assertRaisesRegexp(
+          validator.MarkdownDocumentationError,
+          r".*contains unsupported metadata properties: \['unsupported_tag'\].*"
+      ):
+        validator.validate_documentation_files(
+            documentation_dir="root", filesystem=filesystem)
 
   def test_model_with_invalid_filenames_fails_smoke_test(self):
     filesystem = MockFilesystem()

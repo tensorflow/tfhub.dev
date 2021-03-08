@@ -101,23 +101,6 @@ def _recursive_list_dir(root_dir):
       yield os.path.join(dirname, filename)
 
 
-class Filesystem(object):
-  """Convenient (and mockable) file system access."""
-
-  def get_contents(self, filename):
-    """Returns file contents as a string."""
-    with tf.io.gfile.GFile(filename, "r") as f:
-      return f.read()
-
-  def file_exists(self, filename):
-    """Returns whether file exists."""
-    return tf.io.gfile.exists(filename)
-
-  def recursive_list_dir(self, root_dir):
-    """Yields all files of a root directory tree."""
-    return _recursive_list_dir(root_dir)
-
-
 class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
 
@@ -352,9 +335,8 @@ class PublisherParsingPolicy(ParsingPolicy):
 class DocumentationParser(object):
   """Class used for parsing model documentation strings."""
 
-  def __init__(self, documentation_dir, filesystem):
+  def __init__(self, documentation_dir):
     self._documentation_dir = documentation_dir
-    self._filesystem = filesystem
     self._parsed_metadata = dict()
     self._parsed_description = ""
     self._file_path = ""
@@ -411,7 +393,7 @@ class DocumentationParser(object):
     publisher_policy = PublisherParsingPolicy(self.policy.publisher, None, None)
     expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
         self._documentation_dir)
-    if not self._filesystem.file_exists(expected_publisher_doc_file_path):
+    if not tf.io.gfile.exists(expected_publisher_doc_file_path):
       self.raise_error(
           "Publisher documentation does not exist. "
           f"It should be added to {expected_publisher_doc_file_path}.")
@@ -529,7 +511,8 @@ class DocumentationParser(object):
   def validate(self, file_path, do_smoke_test):
     """Validate one documentation markdown file."""
     self._file_path = file_path
-    raw_content = self._filesystem.get_contents(self._file_path)
+    with tf.io.gfile.GFile(self._file_path, "r") as f:
+      raw_content = f.read()
     self._lines = raw_content.split("\n")
     first_line = self._lines[0].replace("&zwnj;", "")
     self.policy = self.get_policy_from_first_line(first_line)
@@ -550,11 +533,9 @@ class DocumentationParser(object):
       self.smoke_test_asset()
 
 
-def validate_documentation_files(documentation_dir,
-                                 files_to_validate=None,
-                                 filesystem=Filesystem()):
+def validate_documentation_files(documentation_dir, files_to_validate=None):
   """Validate documentation files in a directory."""
-  file_paths = list(filesystem.recursive_list_dir(documentation_dir))
+  file_paths = list(_recursive_list_dir(documentation_dir))
   do_smoke_test = bool(files_to_validate)
   validated = 0
   for file_path in file_paths:
@@ -562,7 +543,7 @@ def validate_documentation_files(documentation_dir,
                                        1:] not in files_to_validate:
       continue
     logging.info("Validating %s.", file_path)
-    documentation_parser = DocumentationParser(documentation_dir, filesystem)
+    documentation_parser = DocumentationParser(documentation_dir)
     documentation_parser.validate(file_path, do_smoke_test)
     validated += 1
   logging.info("Found %d matching files - all validated successfully.",

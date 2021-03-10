@@ -15,8 +15,6 @@
 """Tests for tensorflow_hub.tfhub_dev.tools.validator."""
 
 import os
-import shutil
-import tempfile
 
 import mock
 import tensorflow as tf
@@ -344,7 +342,7 @@ class ValidatorTest(tf.test.TestCase):
 
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
-    self.tmp_dir = tempfile.mkdtemp()
+    self.tmp_dir = self.create_tempdir()
     self.tmp_root_dir = os.path.join(self.tmp_dir, "root")
     self.model_path = os.path.join(self.tmp_dir, "model_1")
     self.not_a_model_path = os.path.join(self.tmp_dir, "not_a_model")
@@ -359,10 +357,6 @@ class ValidatorTest(tf.test.TestCase):
         return_value=True)
     self.asset_path_modified.start()
     self.addCleanup(self.asset_path_modified.stop)
-
-  def tearDown(self):
-    super(tf.test.TestCase, self).tearDown()
-    shutil.rmtree(self.tmp_dir)
 
   def get_full_path(self, file_path):
     return os.path.join(self.tmp_dir, file_path)

@@ -1,4 +1,4 @@
-load("//third_party/tfhub_dev:tfhub_dev.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
+load("//:tfhub_dev.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
 
 # Copyright 2020 The TensorFlow Hub Authors. All Rights Reserved.
 #

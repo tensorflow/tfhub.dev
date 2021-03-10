@@ -35,6 +35,8 @@ import os
 import re
 import subprocess
 import sys
+from typing import Dict, Iterator, List, Set
+
 from absl import app
 from absl import logging
 
@@ -94,7 +96,7 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
 }
 
 
-def _recursive_list_dir(root_dir):
+def _recursive_list_dir(root_dir: str) -> Iterator[str]:
   """Yields all files of a root directory tree."""
   for dirname, _, filenames in tf.io.gfile.walk(root_dir):
     for filename in filenames:
@@ -105,7 +107,7 @@ class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
 
 
-def _validate_file_paths(model_dir):
+def _validate_file_paths(model_dir: str):
   valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
   for filepath in _recursive_list_dir(model_dir):
     if not valid_path_regex.fullmatch(filepath):
@@ -119,8 +121,8 @@ class ParsingPolicy(object):
   a publisher field, a readable name, a correct file path etc.
   """
 
-  def __init__(self, publisher, model_name, model_version, required_metadata,
-               optional_metadata):
+  def __init__(self, publisher: str, model_name: str, model_version: str,
+               required_metadata: List[str], optional_metadata: List[str]):
     self._publisher = publisher
     self._model_name = model_name
     self._model_version = model_version
@@ -133,19 +135,19 @@ class ParsingPolicy(object):
     """Return readable name of the parsed type."""
 
   @property
-  def publisher(self):
+  def publisher(self) -> str:
     return self._publisher
 
   @property
-  def supported_metadata(self):
+  def supported_metadata(self) -> List[str]:
     """Return which metadata tags are supported."""
     return self._required_metadata + self._optional_metadata
 
-  def get_top_level_dir(self, root_dir):
+  def get_top_level_dir(self, root_dir: str) -> str:
     """Returns the top level publisher directory."""
     return os.path.join(root_dir, self._publisher)
 
-  def assert_correct_file_path(self, file_path, root_dir):
+  def assert_correct_file_path(self, file_path: str, root_dir: str):
     if not file_path.endswith(".md"):
       raise MarkdownDocumentationError(
           "Documentation file does not end with '.md': %s" % file_path)
@@ -157,11 +159,12 @@ class ParsingPolicy(object):
           f"{self.type_name} with publisher '{self._publisher}' should be "
           f"placed in the publisher directory: '{publisher_dir}'")
 
-  def assert_can_resolve_asset(self, asset_path):
+  def assert_can_resolve_asset(self, asset_path: str):
     """Check whether the asset path can be resolved."""
     pass
 
-  def assert_metadata_contains_required_fields(self, metadata):
+  def assert_metadata_contains_required_fields(self, metadata: Dict[str,
+                                                                    Set[str]]):
     required_metadata = set(self._required_metadata)
     provided_metadata = set(metadata.keys())
     if not provided_metadata.issuperset(required_metadata):
@@ -170,7 +173,8 @@ class ParsingPolicy(object):
           "%s. Please refer to README.md for information about markdown "
           "format." % sorted(required_metadata.difference(provided_metadata)))
 
-  def assert_metadata_contains_supported_fields(self, metadata):
+  def assert_metadata_contains_supported_fields(self, metadata: Dict[str,
+                                                                     Set[str]]):
     supported_metadata = set(self.supported_metadata)
     provided_metadata = set(metadata.keys())
     if not supported_metadata.issuperset(provided_metadata):
@@ -179,7 +183,7 @@ class ParsingPolicy(object):
           f"{sorted(provided_metadata.difference(supported_metadata))}. Please "
           "refer to README.md for information about markdown format.")
 
-  def assert_no_duplicate_metadata(self, metadata):
+  def assert_no_duplicate_metadata(self, metadata: Dict[str, Set[str]]):
     duplicate_metadata = list()
     for key, values in metadata.items():
       if key in self.supported_metadata and len(values) > 1:
@@ -190,7 +194,7 @@ class ParsingPolicy(object):
           "README.md for information about markdown format. In particular the "
           f"duplicated metadata are: {sorted(duplicate_metadata)}")
 
-  def assert_correct_module_types(self, metadata):
+  def assert_correct_module_types(self, metadata: Dict[str, Set[str]]):
     if "module-type" in metadata:
       allowed_prefixes = ["image-", "text-", "audio-", "video-"]
       for value in metadata["module-type"]:
@@ -199,7 +203,7 @@ class ParsingPolicy(object):
               "The 'module-type' metadata has to start with any of 'image-'"
               ", 'text', 'audio-', 'video-', but is: '{value}'")
 
-  def assert_correct_metadata(self, metadata):
+  def assert_correct_metadata(self, metadata: Dict[str, Set[str]]):
     """Assert that correct metadata is present."""
     self.assert_metadata_contains_required_fields(metadata)
     self.assert_metadata_contains_supported_fields(metadata)
@@ -210,7 +214,7 @@ class ParsingPolicy(object):
 class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
-  def __init__(self, publisher, model_name, model_version):
+  def __init__(self, publisher: str, model_name: str, model_version: str):
     super(CollectionParsingPolicy,
           self).__init__(publisher, model_name, model_version, ["module-type"],
                          ["dataset", "language", "network-architecture"])
@@ -223,7 +227,7 @@ class CollectionParsingPolicy(ParsingPolicy):
 class PlaceholderParsingPolicy(ParsingPolicy):
   """ParsingPolicy for placeholder files."""
 
-  def __init__(self, publisher, model_name, model_version):
+  def __init__(self, publisher: str, model_name: str, model_version: str):
     super(PlaceholderParsingPolicy, self).__init__(
         publisher, model_name, model_version, ["module-type"], [
             "dataset", "fine-tunable", "interactive-model-name", "language",
@@ -231,14 +235,14 @@ class PlaceholderParsingPolicy(ParsingPolicy):
         ])
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Placeholder"
 
 
 class SavedModelParsingPolicy(ParsingPolicy):
   """ParsingPolicy for SavedModel documentation."""
 
-  def __init__(self, publisher, model_name, model_version):
+  def __init__(self, publisher: str, model_name: str, model_version: str):
     super(SavedModelParsingPolicy, self).__init__(
         publisher, model_name, model_version,
         ["asset-path", "module-type", "fine-tunable", "format"], [
@@ -247,10 +251,10 @@ class SavedModelParsingPolicy(ParsingPolicy):
         ])
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Module"
 
-  def assert_correct_metadata(self, metadata):
+  def assert_correct_metadata(self, metadata: Dict[str, Set[str]]):
     super().assert_correct_metadata(metadata)
 
     format_value = list(metadata["format"])[0]
@@ -259,7 +263,7 @@ class SavedModelParsingPolicy(ParsingPolicy):
           f"The 'format' metadata should be one of {SAVED_MODEL_FORMATS} "
           f"but was '{format_value}'.")
 
-  def assert_can_resolve_asset(self, asset_path):
+  def assert_can_resolve_asset(self, asset_path: str):
     """Attempt to hub.resolve the given asset path."""
     try:
       resolved_model = hub.resolve(asset_path)
@@ -276,13 +280,13 @@ class SavedModelParsingPolicy(ParsingPolicy):
 class TfjsParsingPolicy(ParsingPolicy):
   """ParsingPolicy for TF.js documentation."""
 
-  def __init__(self, publisher, model_name, model_version):
+  def __init__(self, publisher: str, model_name: str, model_version: str):
     super(TfjsParsingPolicy,
           self).__init__(publisher, model_name, model_version,
                          ["asset-path", "parent-model"], [])
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Tfjs"
 
 
@@ -290,7 +294,7 @@ class LiteParsingPolicy(TfjsParsingPolicy):
   """ParsingPolicy for TFLite documentation."""
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Lite"
 
 
@@ -298,7 +302,7 @@ class CoralParsingPolicy(TfjsParsingPolicy):
   """ParsingPolicy for Coral documentation."""
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Coral"
 
 
@@ -309,19 +313,19 @@ class PublisherParsingPolicy(ParsingPolicy):
   should not contain a 'format' tag as it has no effect.
   """
 
-  def __init__(self, publisher, model_name, model_version):
+  def __init__(self, publisher: str, model_name: str = "", model_version: str = ""):
     super(PublisherParsingPolicy, self).__init__(publisher, model_name,
                                                  model_version, [], [])
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Publisher"
 
-  def get_expected_file_path(self, root_dir):
+  def get_expected_file_path(self, root_dir: str) -> str:
     """Returns the expected path of the documentation file."""
     return os.path.join(root_dir, self._publisher, self._publisher + ".md")
 
-  def assert_correct_file_path(self, file_path, root_dir):
+  def assert_correct_file_path(self, file_path: str, root_dir: str):
     """Extend base method by also checking for /publisher/publisher.md."""
     expected_file_path = self.get_expected_file_path(root_dir)
     if expected_file_path and file_path != expected_file_path:
@@ -335,27 +339,28 @@ class PublisherParsingPolicy(ParsingPolicy):
 class DocumentationParser(object):
   """Class used for parsing model documentation strings."""
 
-  def __init__(self, documentation_dir):
+  def __init__(self, documentation_dir: str):
     self._documentation_dir = documentation_dir
     self._parsed_metadata = dict()
     self._parsed_description = ""
     self._file_path = ""
     self._lines = []
     self._current_index = 0
+    self.policy = None
 
   @property
-  def parsed_description(self):
+  def parsed_description(self) -> str:
     return self._parsed_description
 
   @property
-  def parsed_metadata(self):
+  def parsed_metadata(self) -> str:
     return self._parsed_metadata
 
-  def raise_error(self, message):
+  def raise_error(self, message: str):
     message_with_file = f"Error at file {self._file_path}: {message}"
     raise MarkdownDocumentationError(message_with_file)
 
-  def get_policy_from_first_line(self, first_line):
+  def get_policy_from_first_line(self, first_line: str) -> ParsingPolicy:
     """Return an appropriate ParsingPolicy instance for the first line."""
     patterns_and_policies = [
         (MODEL_HANDLE_PATTERN, SavedModelParsingPolicy),
@@ -373,7 +378,7 @@ class DocumentationParser(object):
       groups = match.groupdict()
       return policy(
           groups.get("publisher"), groups.get("name"), groups.get("vers"))
-
+    # pytype: disable=bad-return-type
     self.raise_error(
         "First line of the documentation file must match one of the following "
         "formats depending on the MD type:\n"
@@ -386,11 +391,12 @@ class DocumentationParser(object):
         f"Placeholder: {PLACEHOLDER_HANDLE_PATTERN}\n"
         "For example '# Module google/text-embedding-model/1'. Instead the "
         f"first line is '{first_line}'")
+    # pytype: enable=bad-return-type
 
   def assert_publisher_page_exists(self):
     """Assert that publisher page exists for the publisher of this model."""
     # Use a publisher policy to get the expected documentation page path.
-    publisher_policy = PublisherParsingPolicy(self.policy.publisher, None, None)
+    publisher_policy = PublisherParsingPolicy(self.policy.publisher)
     expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
         self._documentation_dir)
     if not tf.io.gfile.exists(expected_publisher_doc_file_path):
@@ -427,8 +433,13 @@ class DocumentationParser(object):
       if match:
         # Add found metadata.
         groups = match.groupdict()
-        key = groups.get("key").strip()
-        value = groups.get("value").strip()
+        key = groups.get("key")
+        value = groups.get("value")
+        if key is None or value is None:
+          raise MarkdownDocumentationError(
+              f"(key, value) must not be None but got ({key}, {value}).")
+        key = key.strip()
+        value = value.strip()
         if key not in self._parsed_metadata:
           self._parsed_metadata[key] = set()
         self._parsed_metadata[key].add(value)
@@ -470,7 +481,7 @@ class DocumentationParser(object):
             "Please specify a license id from list of allowed ids: "
             f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
 
-  def _is_asset_path_modified(self):
+  def _is_asset_path_modified(self) -> bool:
     """Return True if the asset-path tag has been added or modified."""
     # pylint: disable=subprocess-run-check
     command = f"git diff {self._file_path} | grep '+<!-- asset-path:'"
@@ -508,7 +519,7 @@ class DocumentationParser(object):
           "by its robots.txt.")
     self.policy.assert_can_resolve_asset(asset_path)
 
-  def validate(self, file_path, do_smoke_test):
+  def validate(self, file_path: str, do_smoke_test: bool):
     """Validate one documentation markdown file."""
     self._file_path = file_path
     with tf.io.gfile.GFile(self._file_path, "r") as f:
@@ -526,14 +537,15 @@ class DocumentationParser(object):
       self.consume_metadata()
       self.policy.assert_correct_metadata(self._parsed_metadata)
     except MarkdownDocumentationError as e:
-      self.raise_error(e)
+      self.raise_error(str(e))
     self.assert_allowed_license()
     self.assert_publisher_page_exists()
     if do_smoke_test:
       self.smoke_test_asset()
 
 
-def validate_documentation_files(documentation_dir, files_to_validate=None):
+def validate_documentation_files(documentation_dir: str,
+                                 files_to_validate: List[str] = None):
   """Validate documentation files in a directory."""
   file_paths = list(_recursive_list_dir(documentation_dir))
   do_smoke_test = bool(files_to_validate)

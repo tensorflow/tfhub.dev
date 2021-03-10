@@ -680,11 +680,10 @@ class ValidatorTest(tf.test.TestCase):
     documentation_parser = validator.DocumentationParser(self.tmp_root_dir)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  r"Invalid filepath.*\.invalid_file"):
-      validator.validate_documentation_files(
-          documentation_parser.validate(
-              file_path=self.get_full_path(
-                  "root/google/models/text-embedding-model/1.md"),
-              do_smoke_test=True))
+      documentation_parser.validate(
+          file_path=self.get_full_path(
+              "root/google/models/text-embedding-model/1.md"),
+          do_smoke_test=True)
 
 
 if __name__ == "__main__":

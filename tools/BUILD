@@ -1,3 +1,5 @@
+load("//third_party/tfhub_dev:tfhub_dev.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
+
 # Copyright 2020 The TensorFlow Hub Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +16,7 @@
 # ==============================================================================
 licenses(["notice"])
 
-py_binary(
+pytype_strict_binary(
     name = "validator",
     srcs = ["validator.py"],
     python_version = "PY3",
@@ -22,7 +24,7 @@ py_binary(
     deps = [":validator_lib"],
 )
 
-py_library(
+pytype_strict_library(
     name = "validator_lib",
     srcs = [
         "validator.py",
@@ -30,20 +32,23 @@ py_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        "//third_party/py/absl:app",
+        "//third_party/py/absl/logging",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
+        "//third_party/tensorflow/python/saved_model:loader",
     ],
 )
 
-py_test(
+pytype_strict_test(
     name = "validator_test",
     srcs = ["validator_test.py"],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
         ":validator_lib",
+        "//third_party/py/mock",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
-        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
     ],
 )
 

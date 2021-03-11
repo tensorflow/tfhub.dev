@@ -32,11 +32,11 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party/py/absl:app",
-        "//third_party/py/absl/logging",
+        "@io_abseil_py//absl:app",
+        "@io_abseil_py//absl/logging",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
-        "//third_party/tensorflow/python/saved_model:loader",
+        "@org_tensorflow//tensorflow/python/saved_model:loader",
     ],
 )
 
@@ -47,7 +47,7 @@ pytype_strict_test(
     srcs_version = "PY3",
     deps = [
         ":validator_lib",
-        "//third_party/py/mock",
+        "@py_mock//py/mock",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
     ],
 )

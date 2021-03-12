@@ -1,4 +1,5 @@
 load("//:tfhub_dev.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
+load("//tools/build_defs/testing:bzl_library.bzl", "bzl_library")  # buildifier: disable=load-on-top
 
 # Copyright 2020 The TensorFlow Hub Authors. All Rights Reserved.
 #
@@ -62,4 +63,10 @@ py_library(
 # `pip install tensorflow-hub`
 py_library(
     name = "expect_tensorflow_hub_installed",
+)
+
+bzl_library(
+    name = "tfhub_dev_bzl",
+    srcs = ["tfhub_dev.bzl"],
+    visibility = ["//visibility:public"],
 )

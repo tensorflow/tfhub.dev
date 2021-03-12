@@ -25,6 +25,18 @@ pytype_strict_binary(
     deps = [":validator_lib"],
 )
 
+pytype_strict_binary(
+    name = "tags_validator_main",
+    srcs = ["tags_validator_main.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":tags_validator",
+        "@io_abseil_py//absl:app",
+        "@io_abseil_py//absl/logging",
+    ],
+)
+
 pytype_strict_library(
     name = "validator_lib",
     srcs = [
@@ -33,12 +45,37 @@ pytype_strict_library(
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
+        ":filesystem_utils",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/logging",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
         "@org_tensorflow//tensorflow/python/saved_model:loader",
     ],
+)
+
+pytype_strict_library(
+    name = "tags_validator",
+    srcs = [
+        "tags_validator.py",
+    ],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":filesystem_utils",
+        "@io_abseil_py//absl/logging",
+        "//third_party/py/ruamel",
+        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
+        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
+        "//third_party/py/yaml",
+    ],
+)
+
+pytype_strict_library(
+    name = "filesystem_utils",
+    srcs = ["filesystem_utils.py"],
+    srcs_version = "PY3",
+    deps = ["@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed"],
 )
 
 pytype_strict_test(
@@ -49,6 +86,28 @@ pytype_strict_test(
     deps = [
         ":validator_lib",
         "@py_mock//py/mock",
+        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
+    ],
+)
+
+pytype_strict_test(
+    name = "filesystem_utils_test",
+    srcs = ["filesystem_utils_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":filesystem_utils",
+        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
+    ],
+)
+
+pytype_strict_test(
+    name = "tags_validator_test",
+    srcs = ["tags_validator_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":tags_validator",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
     ],
 )

@@ -35,13 +35,14 @@ import os
 import re
 import subprocess
 import sys
-from typing import Dict, Iterator, List, Set
+from typing import Dict, List, Set
 
 from absl import app
 from absl import logging
-
 import tensorflow as tf
 import tensorflow_hub as hub
+from tools import filesystem_utils
+
 
 # pylint: disable=g-direct-tensorflow-import
 from tensorflow.python.saved_model import loader_impl
@@ -96,20 +97,13 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
 }
 
 
-def _recursive_list_dir(root_dir: str) -> Iterator[str]:
-  """Yields all files of a root directory tree."""
-  for dirname, _, filenames in tf.io.gfile.walk(root_dir):
-    for filename in filenames:
-      yield os.path.join(dirname, filename)
-
-
 class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
 
 
 def _validate_file_paths(model_dir: str):
   valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
-  for filepath in _recursive_list_dir(model_dir):
+  for filepath in filesystem_utils.recursive_list_dir(model_dir):
     if not valid_path_regex.fullmatch(filepath):
       raise MarkdownDocumentationError(f"Invalid filepath in asset: {filepath}")
 
@@ -522,8 +516,7 @@ class DocumentationParser(object):
   def validate(self, file_path: str, do_smoke_test: bool):
     """Validate one documentation markdown file."""
     self._file_path = file_path
-    with tf.io.gfile.GFile(self._file_path, "r") as f:
-      raw_content = f.read()
+    raw_content = filesystem_utils.get_content(self._file_path)
     self._lines = raw_content.split("\n")
     first_line = self._lines[0].replace("&zwnj;", "")
     self.policy = self.get_policy_from_first_line(first_line)
@@ -547,7 +540,7 @@ class DocumentationParser(object):
 def validate_documentation_files(documentation_dir: str,
                                  files_to_validate: List[str] = None):
   """Validate documentation files in a directory."""
-  file_paths = list(_recursive_list_dir(documentation_dir))
+  file_paths = list(filesystem_utils.recursive_list_dir(documentation_dir))
   do_smoke_test = bool(files_to_validate)
   validated = 0
   for file_path in file_paths:

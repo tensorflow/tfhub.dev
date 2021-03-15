@@ -18,7 +18,7 @@
 from typing import Dict, List
 from absl import logging
 import ruamel.yaml.nodes as nodes
-from tools import filesystem_utils
+import filesystem_utils
 import yaml
 
 REQUIRED_TOP_LEVEL_KEYS = frozenset(["values"])

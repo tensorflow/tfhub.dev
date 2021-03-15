@@ -28,7 +28,7 @@ import sys
 
 from absl import app
 from absl import logging
-from tools import tags_validator
+import tags_validator
 
 FLAGS = None
 

@@ -18,7 +18,7 @@ import os
 
 import mock
 import tensorflow as tf
-from tools import validator
+import validator
 
 
 MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1

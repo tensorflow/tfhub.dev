@@ -17,7 +17,7 @@
 import os
 import pathlib
 import tensorflow as tf
-from tools import filesystem_utils
+import filesystem_utils
 
 
 class FilesystemUtilsTest(tf.test.TestCase):

@@ -41,7 +41,7 @@ from absl import app
 from absl import logging
 import tensorflow as tf
 import tensorflow_hub as hub
-from tools import filesystem_utils
+import filesystem_utils
 
 
 # pylint: disable=g-direct-tensorflow-import

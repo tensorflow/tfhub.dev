@@ -17,7 +17,7 @@
 import os
 
 import tensorflow as tf
-from tools import tags_validator
+import tags_validator
 
 INVALID_FILE = """# Module"""
 

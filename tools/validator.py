@@ -84,6 +84,9 @@ COLLECTION_HANDLE_PATTERN = (
 # are stripped.
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 
+# These metadata tags can be set to more than one value.
+REPEATED_TAG_KEYS = ("dataset", "module-type", "network-architecture")
+
 # Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
 SAVED_MODEL_FORMATS = ("hub", "saved_model", "saved_model_2")
 
@@ -180,7 +183,7 @@ class ParsingPolicy(object):
   def assert_no_duplicate_metadata(self, metadata: Dict[str, Set[str]]):
     duplicate_metadata = list()
     for key, values in metadata.items():
-      if key in self.supported_metadata and len(values) > 1:
+      if key not in REPEATED_TAG_KEYS and len(values) > 1:
         duplicate_metadata.append(key)
     if duplicate_metadata:
       raise MarkdownDocumentationError(

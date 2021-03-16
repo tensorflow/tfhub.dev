@@ -253,10 +253,21 @@ One line description.
 ## Overview
 """
 
-MARKDOWN_WITH_DUPLICATE_METADATA = """# Module google/text-embedding-model/1
+MARKDOWN_WITH_FORBIDDEN_DUPLICATE_METADATA = """# Module google/model/1
 One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- asset-path: https://path/to/text-embedding-model/model2.tar.gz -->
+<!-- module-type: text-embedding -->
+<!-- fine-tunable: true -->
+<!-- format: saved_model_2 -->
+
+## Overview
+"""
+
+MARKDOWN_WITH_ALLOWED_DUPLICATE_METADATA = """# Module google/model/1
+One line description.
+<!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
+<!-- module-type: text-classification -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -527,13 +538,19 @@ class ValidatorTest(tf.test.TestCase):
       validator.validate_documentation_files(
           documentation_dir=self.tmp_root_dir)
 
-  def test_markdown_with_duplicate_metadata(self):
+  def test_markdown_with_forbidden_duplicate_metadata(self):
     self.set_content("root/google/models/text-embedding-model/1.md",
-                     MARKDOWN_WITH_DUPLICATE_METADATA)
+                     MARKDOWN_WITH_FORBIDDEN_DUPLICATE_METADATA)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*duplicate.*asset-path.*"):
       validator.validate_documentation_files(
           documentation_dir=self.tmp_root_dir)
+
+  def test_markdown_with_allowed_duplicate_metadata(self):
+    self.set_up_publisher_page("google")
+    self.set_content("root/google/models/model/1.md",
+                     MARKDOWN_WITH_ALLOWED_DUPLICATE_METADATA)
+    validator.validate_documentation_files(documentation_dir=self.tmp_root_dir)
 
   def test_markdown_with_unexpected_lines(self):
     self.set_content("root/google/models/text-embedding-model/1.md",

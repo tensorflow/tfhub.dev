@@ -6,6 +6,6 @@ Emil Barbuta.
 ## Details
 Deep learning engineer at Oxford Nanoimaging. Machine learning image and audio art generation enthusiast.
 
-GitLab: [emilutz](https://gitlab.com/emilutz)
-GitHub: [emilutz](https://github.com/emilutz)
-LinkedIn: [EmilBarbuta](https://www.linkedin.com/in/emil-barbuta-883930153/)
+GitLab: [emilutz](https://gitlab.com/emilutz)<br>
+GitHub: [emilutz](https://github.com/emilutz)<br>
+LinkedIn: [EmilBarbuta](https://www.linkedin.com/in/emil-barbuta-883930153/)<br>

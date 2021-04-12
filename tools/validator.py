@@ -85,7 +85,8 @@ COLLECTION_HANDLE_PATTERN = (
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 
 # These metadata tags can be set to more than one value.
-REPEATED_TAG_KEYS = ("dataset", "module-type", "network-architecture")
+REPEATED_TAG_KEYS = ("dataset", "language", "module-type",
+                     "network-architecture")
 
 # Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
 SAVED_MODEL_FORMATS = ("hub", "saved_model", "saved_model_2")

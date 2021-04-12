@@ -269,6 +269,12 @@ One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- module-type: text-classification -->
 <!-- module-type: text-embedding -->
+<!-- dataset: MNIST -->
+<!-- dataset: Wikipedia -->
+<!-- language: en -->
+<!-- language: fr -->
+<!-- network-architecture: Transformer -->
+<!-- network-architecture: EfficientNet -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
 

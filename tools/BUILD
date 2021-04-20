@@ -25,6 +25,20 @@ pytype_strict_binary(
     deps = [":validator_lib"],
 )
 
+pytype_strict_test(
+    name = "test_tag_configs",
+    srcs = ["test_tag_configs.py"],
+    data = [
+        "//third_party/py/tfhub_dev:tag_config_files",
+    ],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":tags_validator",
+        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
+    ],
+)
+
 pytype_strict_binary(
     name = "tags_validator_main",
     srcs = ["tags_validator_main.py"],

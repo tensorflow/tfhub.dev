@@ -21,6 +21,8 @@ $ python tools/tags_validator.py
 $ python tools/tags_validator.py tags/dataset.yml [other_files]
 
 Use the --root_dir flag to validate tag files outside of the current project.
+
+TODO(b/182137324): Merge with test_tag_configs.py once `bazel test` can be used.
 """
 import argparse
 import os

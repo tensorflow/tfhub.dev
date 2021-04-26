@@ -1,0 +1,116 @@
+# Use ISO 639-1 standard language codes (https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
+values:
+  - id: ar
+    display_name: Arabic
+  - id: as
+    display_name: Assamese
+  - id: bg
+    display_name: Bulgarian
+  - id: bn
+    display_name: Bengali
+  - id: ca
+    display_name: Catalan
+  - id: cs
+    display_name: Czech
+  - id: da
+    display_name: Danish
+  - id: de
+    display_name: German
+  - id: el
+    display_name: Greek
+  - id: en
+    display_name: English
+  - id: es
+    display_name: Spanish
+  - id: et
+    display_name: Estonian
+  - id: fa
+    display_name: Persian
+  - id: fi
+    display_name: Finnish
+  - id: fr
+    display_name: French
+  - id: gu
+    display_name: Gujarati
+  - id: he
+    display_name: Hebrew
+  - id: hi
+    display_name: Hindi
+  - id: hr
+    display_name: Croatian
+  - id: hu
+    display_name: Hungarian
+  - id: id
+    display_name: Indonesian
+  - id: it
+    display_name: Italian
+  - id: ja
+    display_name: Japanese
+  - id: ko
+    display_name: Korean
+  - id: kn
+    display_name: Kannada
+  - id: ks
+    display_name: Kashmiri
+  - id: lt
+    display_name: Lithuanian
+  - id: lv
+    display_name: Latvian
+  - id: ml
+    display_name: Malayalam
+  - id: mr
+    display_name: Marathi
+  - id: ms
+    display_name: Malay
+  - id: multilingual # included for legacy reasons
+    display_name: Multilingual
+  - id: ne
+    display_name: Nepali
+  - id: nl
+    display_name: Dutch
+  - id: "no" # no is a reserved YAML keyword https://yaml.org/type/bool.html
+    display_name: Norwegian
+  - id: or
+    display_name: Oriya
+  - id: pa
+    display_name: Punjabi
+  - id: pl
+    display_name: Polish
+  - id: pt
+    display_name: Portuguese
+  - id: ro
+    display_name: Romanian
+  - id: ru
+    display_name: Russian
+  - id: sa
+    display_name: Sanskrit
+  - id: sd
+    display_name: Sindhi
+  - id: sk
+    display_name: Slovak
+  - id: sl
+    display_name: Slovenian
+  - id: sr
+    display_name: Serbian
+  - id: sv
+    display_name: Swedish
+  - id: ta
+    display_name: Tamil
+  - id: te
+    display_name: Tegulu
+  - id: th
+    display_name: Thai
+  - id: tl
+    display_name: Tagalog
+  - id: tr
+    display_name: Turkish
+  - id: uk
+    display_name: Ukrainian
+  - id: ur
+    display_name: Urdu
+  - id: vi
+    display_name: Vietnamese
+  - id: zh-cn
+    display_name: Chinese
+  - id: zh-tw
+    display_name: Chinese (Taiwan)

@@ -28,7 +28,7 @@ jobs:
           python-version: '3.6'
       - name: Install packages
         run: |
-          pip install absl-py tensorflow tensorflow_hub
+          pip install absl-py tensorflow tensorflow_hub pyaml ruamel.yaml
           pip freeze all
       - name: Debug information
         run: |
@@ -40,3 +40,4 @@ jobs:
       - name: Run validator on changed files
         run: |
           git diff origin/master --name-only --relative=assets/docs | xargs python3.6 ./tools/validator.py
+          python3.6 ./tools/tags_validator_main.py

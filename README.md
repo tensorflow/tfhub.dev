@@ -4,8 +4,7 @@
 This repository serves for storing documentation for models to be published on
 [tfhub.dev](https://tfhub.dev).
 
-Please note that publishing to tfhub.dev is in **early testing**. If you are
-interested in publishing, please follow
+If you are interested in publishing, please follow
 [https://www.tensorflow.org/hub/publish](https://www.tensorflow.org/hub/publish)
 and we will process your submission as soon as possible.
 

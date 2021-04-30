@@ -168,7 +168,7 @@ class ParsingPolicy(object):
     if not provided_metadata.issuperset(required_metadata):
       raise MarkdownDocumentationError(
           "The MD file is missing the following required metadata properties: "
-          "%s. Please refer to README.md for information about markdown "
+          "%s. Please refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown "
           "format." % sorted(required_metadata.difference(provided_metadata)))
 
   def assert_metadata_contains_supported_fields(self, metadata: Dict[str,
@@ -179,7 +179,7 @@ class ParsingPolicy(object):
       raise MarkdownDocumentationError(
           "The MD file contains unsupported metadata properties: "
           f"{sorted(provided_metadata.difference(supported_metadata))}. Please "
-          "refer to README.md for information about markdown format.")
+          "refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown format.")
 
   def assert_no_duplicate_metadata(self, metadata: Dict[str, Set[str]]):
     duplicate_metadata = list()
@@ -189,8 +189,9 @@ class ParsingPolicy(object):
     if duplicate_metadata:
       raise MarkdownDocumentationError(
           "There are duplicate metadata values. Please refer to "
-          "README.md for information about markdown format. In particular the "
-          f"duplicated metadata are: {sorted(duplicate_metadata)}")
+          "https://www.tensorflow.org/hub/writing_model_documentation for "
+          "information about markdown format. In particular the duplicated "
+          f"metadata are: {sorted(duplicate_metadata)}")
 
   def assert_correct_module_types(self, metadata: Dict[str, Set[str]]):
     if "module-type" in metadata:
@@ -271,8 +272,9 @@ class SavedModelParsingPolicy(ParsingPolicy):
       raise MarkdownDocumentationError(
           f"The model on path {asset_path} failed to parse. Please make sure "
           "that the asset-path metadata points to a valid TF2 SavedModel or a "
-          "TF1 Hub module, compressed as described in section 'Model' of "
-          f"README.md. Underlying reason for failure: {e}.")
+          "TF1 Hub module as described on "
+          "https://www.tensorflow.org/hub/exporting_tf2_saved_model. "
+          f"Underlying reason for failure: {e}.")
 
 
 class TfjsParsingPolicy(ParsingPolicy):
@@ -460,9 +462,9 @@ class DocumentationParser(object):
       # Not an empty line and not expected metadata.
       raise MarkdownDocumentationError(
           f"Unexpected line found: '{self._lines[self._current_index]}'. "
-          "Please refer to [README.md]"
-          "(https://github.com/tensorflow/tfhub.dev/blob/master/README.md) "
-          "for information about markdown format.")
+          "Please refer to "
+          "https://www.tensorflow.org/hub/writing_model_documentation for "
+          "information about markdown format.")
 
   def assert_allowed_license(self):
     """Validate provided license."""

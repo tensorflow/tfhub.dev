@@ -443,10 +443,9 @@ class ValidatorTest(tf.test.TestCase):
     self.set_content("root/google/models/text-embedding-model/1.md",
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
-    num_validated = validator.validate_documentation_files(
+    validator.validate_documentation_files(
         documentation_dir=self.tmp_root_dir,
         files_to_validate=["google/models/text-embedding-model/1.md"])
-    self.assertEqual(1, num_validated)
 
   def test_collection_markdown_parsed(self):
     self.set_up_publisher_page("google")

@@ -357,8 +357,7 @@ class DocumentationParser(object):
     return self._parsed_metadata
 
   def raise_error(self, message: str):
-    message_with_file = f"Error at file {self._file_path}: {message}"
-    raise MarkdownDocumentationError(message_with_file)
+    raise MarkdownDocumentationError(message)
 
   def get_policy_from_first_line(self, first_line: str) -> ParsingPolicy:
     """Return an appropriate ParsingPolicy instance for the first line."""
@@ -549,22 +548,29 @@ def validate_documentation_files(documentation_dir: str,
   file_paths = list(filesystem_utils.recursive_list_dir(documentation_dir))
   do_smoke_test = bool(files_to_validate)
   validated = 0
+  file_to_error = dict()
+
   for file_path in file_paths:
     if files_to_validate and file_path[len(documentation_dir) +
                                        1:] not in files_to_validate:
       continue
     logging.info("Validating %s.", file_path)
     documentation_parser = DocumentationParser(documentation_dir)
-    documentation_parser.validate(file_path, do_smoke_test)
-    validated += 1
-  logging.info("Found %d matching files - all validated successfully.",
-               validated)
+    try:
+      documentation_parser.validate(file_path, do_smoke_test)
+      validated += 1
+    except MarkdownDocumentationError as e:
+      file_to_error[file_path] = str(e)
   if not do_smoke_test:
     logging.info(
         "No models were smoke tested. To download and smoke test a specific "
         "model, specify files directly in the command line, for example: "
         "'python tools/validator.py vtab/models/wae-ukl/1.md'")
-  return validated
+  if file_to_error:
+    raise MarkdownDocumentationError(
+        f"Found the following errors: {file_to_error}")
+  logging.info("Found %d matching files - all validated successfully.",
+               validated)
 
 
 def main(_):

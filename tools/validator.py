@@ -42,6 +42,7 @@ from absl import logging
 import tensorflow as tf
 import tensorflow_hub as hub
 import filesystem_utils
+import yaml_parser
 
 
 # pylint: disable=g-direct-tensorflow-import
@@ -99,6 +100,9 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
     TFJS_HANDLE_PATTERN: "Tfjs",
     CORAL_HANDLE_PATTERN: "Coral"
 }
+
+# Dict key that maps to all specified languages from the Markdown file.
+LANGUAGE_KEY = "language"
 
 
 class MarkdownDocumentationError(Exception):
@@ -202,12 +206,40 @@ class ParsingPolicy(object):
               "The 'module-type' metadata has to start with any of 'image-'"
               ", 'text', 'audio-', 'video-', but is: '{value}'")
 
-  def assert_correct_metadata(self, metadata: Dict[str, Set[str]]):
+  def assert_correct_languages(self, metadata: Dict[str, Set[str]],
+                               root_dir: str):
+    """Check that all languages are defined in tags/language.yaml.
+
+    Args:
+      metadata: Mapping of metadata fields to their values e.g.
+                {"language": {"en", "fr"}}
+      root_dir: Absolute path that contains the tags/ directory.
+
+    Raises:
+      MarkdownDocumentationError: if the "language" key contains elements in its
+      set that are not present in tags/languages.yaml.
+      yaml.parser.ParserError: if tags/language.yaml is no valid YAML file.
+      FileNotFoundError: if tags/language.yaml does not exist.
+    """
+    if LANGUAGE_KEY not in metadata:
+      return
+
+    language_parser = yaml_parser.YamlParser(root_dir)
+    supported_languages = language_parser.get_supported_languages()
+    unsupported_languages = metadata[LANGUAGE_KEY] - supported_languages
+    if unsupported_languages:
+      raise MarkdownDocumentationError(
+          f"Unsupported languages were found: {unsupported_languages}. "
+          f"Please add them to language.yaml.")
+
+  def assert_correct_metadata(self, metadata: Dict[str, Set[str]],
+                              root_dir: str):
     """Assert that correct metadata is present."""
     self.assert_metadata_contains_required_fields(metadata)
     self.assert_metadata_contains_supported_fields(metadata)
     self.assert_no_duplicate_metadata(metadata)
     self.assert_correct_module_types(metadata)
+    self.assert_correct_languages(metadata, root_dir)
 
 
 class CollectionParsingPolicy(ParsingPolicy):
@@ -253,8 +285,9 @@ class SavedModelParsingPolicy(ParsingPolicy):
   def type_name(self) -> str:
     return "Module"
 
-  def assert_correct_metadata(self, metadata: Dict[str, Set[str]]):
-    super().assert_correct_metadata(metadata)
+  def assert_correct_metadata(self, metadata: Dict[str, Set[str]],
+                              root_dir: str):
+    super().assert_correct_metadata(metadata, root_dir)
 
     format_value = list(metadata["format"])[0]
     if format_value not in SAVED_MODEL_FORMATS:
@@ -339,7 +372,8 @@ class PublisherParsingPolicy(ParsingPolicy):
 class DocumentationParser(object):
   """Class used for parsing model documentation strings."""
 
-  def __init__(self, documentation_dir: str):
+  def __init__(self, root_dir: str, documentation_dir: str):
+    self._root_dir = root_dir
     self._documentation_dir = documentation_dir
     self._parsed_metadata = dict()
     self._parsed_description = ""
@@ -533,7 +567,7 @@ class DocumentationParser(object):
       self.consume_description()
       # Populate _parsed_metadata with the metadata tag mapping
       self.consume_metadata()
-      self.policy.assert_correct_metadata(self._parsed_metadata)
+      self.policy.assert_correct_metadata(self._parsed_metadata, self._root_dir)
     except MarkdownDocumentationError as e:
       self.raise_error(str(e))
     self.assert_allowed_license()
@@ -542,9 +576,17 @@ class DocumentationParser(object):
       self.smoke_test_asset()
 
 
-def validate_documentation_files(documentation_dir: str,
+def validate_documentation_files(root_dir: str,
                                  files_to_validate: List[str] = None):
   """Validate documentation files in a directory."""
+  documentation_dir = os.path.join(root_dir, "assets", "docs")
+  logging.info("Using %s for documentation directory.", documentation_dir)
+  if files_to_validate:
+    logging.info("Going to validate files %s in documentation directory %s.",
+                 files_to_validate, documentation_dir)
+  else:
+    logging.info("Going to validate all files in documentation directory %s.",
+                 documentation_dir)
   file_paths = list(filesystem_utils.recursive_list_dir(documentation_dir))
   do_smoke_test = bool(files_to_validate)
   validated = 0
@@ -555,7 +597,7 @@ def validate_documentation_files(documentation_dir: str,
                                        1:] not in files_to_validate:
       continue
     logging.info("Validating %s.", file_path)
-    documentation_parser = DocumentationParser(documentation_dir)
+    documentation_parser = DocumentationParser(root_dir, documentation_dir)
     try:
       documentation_parser.validate(file_path, do_smoke_test)
       validated += 1
@@ -575,20 +617,12 @@ def validate_documentation_files(documentation_dir: str,
 
 def main(_):
   root_dir = FLAGS.root_dir or os.getcwd()
-  documentation_dir = os.path.join(root_dir, "assets", "docs")
-  logging.info("Using %s for documentation directory.", documentation_dir)
 
   files_to_validate = None
   if FLAGS.file:
     files_to_validate = FLAGS.file
-    logging.info("Going to validate files %s in documentation directory %s.",
-                 files_to_validate, documentation_dir)
-  else:
-    logging.info("Going to validate all files in documentation directory %s.",
-                 documentation_dir)
 
-  validate_documentation_files(
-      documentation_dir=documentation_dir, files_to_validate=files_to_validate)
+  validate_documentation_files(root_dir, files_to_validate=files_to_validate)
 
 
 if __name__ == "__main__":

@@ -60,6 +60,7 @@ pytype_strict_library(
     visibility = ["//visibility:public"],
     deps = [
         ":filesystem_utils",
+        ":yaml_parser",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/logging",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
@@ -92,14 +93,33 @@ pytype_strict_library(
     deps = ["@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed"],
 )
 
+pytype_strict_library(
+    name = "yaml_parser",
+    srcs = ["yaml_parser.py"],
+    srcs_version = "PY3",
+    deps = ["//third_party/py/yaml"],
+)
+
+pytype_strict_test(
+    name = "yaml_parser_test",
+    srcs = ["yaml_parser_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":yaml_parser",
+        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
+        "//third_party/py/yaml",
+    ],
+)
+
 pytype_strict_test(
     name = "validator_test",
     srcs = ["validator_test.py"],
+    data = [":test_tag_configs"],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
         ":validator_lib",
-        "@py_mock//py/mock",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
     ],
 )

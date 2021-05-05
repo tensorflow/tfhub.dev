@@ -516,18 +516,25 @@ class DocumentationParser(object):
 
   def _is_asset_path_modified(self) -> bool:
     """Return True if the asset-path tag has been added or modified."""
-    # pylint: disable=subprocess-run-check
-    command = f"git diff {self._file_path} | grep '+<!-- asset-path:'"
-    result = subprocess.run(command, shell=True)
+    git_diff = subprocess.Popen(
+        ["git", "diff", "origin/master", f"{self._file_path}"],
+        stdout=subprocess.PIPE)
+    grep_asset_path = subprocess.Popen(["grep", "+<!-- asset-path:"],
+                                       stdin=git_diff.stdout,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
+    git_diff.stdout.close()
+    grep_asset_path.communicate()
+    return_code = grep_asset_path.returncode
     # grep exits with code 1 if it cannot find "+<!-- asset-path" in `git diff`.
     # Raise an error if the exit code is not 0 or 1.
-    if result.returncode == 0:
+    if return_code == 0:
       return True
-    elif result.returncode == 1:
+    elif return_code == 1:
       return False
     else:
       self.raise_error(
-          f"{command} returned unexpected exit code {result.returncode}")
+          f"Internal: grep command returned unexpected exit code {return_code}")
 
   def smoke_test_asset(self):
     """Smoke test asset provided on asset-path metadata."""

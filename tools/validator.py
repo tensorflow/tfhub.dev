@@ -51,6 +51,9 @@ from tensorflow.python.saved_model import loader_impl
 
 FLAGS = None
 
+# Relative path from tfhub.dev/ to the docs/ directory.
+DOCS_PATH = "assets/docs"
+
 # Regex pattern for the first line of the documentation of Saved Models.
 # Example: "Module google/universal-sentence-encoder/1"
 MODEL_HANDLE_PATTERN = (
@@ -583,30 +586,63 @@ class DocumentationParser(object):
       self.smoke_test_asset()
 
 
+def validate_documentation_dir(root_dir: str,
+                               relative_docs_path: str = DOCS_PATH):
+  """Validate Markdown files in `root_dir/relative_docs_path`.
+
+  Args:
+    root_dir: Absolute path to the top-level dir that contains Markdown files
+      and YAML config files.
+    relative_docs_path: Relative path under `root_dir` containing the Markdown
+      files. Defaults to "assets/docs".
+
+  Raises:
+    MarkdownDocumentationError: if invalid Markdown files have been found.
+  """
+  documentation_dir = os.path.join(root_dir, relative_docs_path)
+  logging.info("Validating all files in %s.", documentation_dir)
+  relative_paths = [
+      os.path.relpath(file_path, documentation_dir)
+      for file_path in filesystem_utils.recursive_list_dir(documentation_dir)
+  ]
+  validate_documentation_files(
+      root_dir,
+      relative_paths,
+      relative_docs_path=relative_docs_path,
+      do_smoke_test=False)
+
+
 def validate_documentation_files(root_dir: str,
-                                 files_to_validate: List[str] = None):
-  """Validate documentation files in a directory."""
-  documentation_dir = os.path.join(root_dir, "assets", "docs")
-  logging.info("Using %s for documentation directory.", documentation_dir)
-  if files_to_validate:
-    logging.info("Going to validate files %s in documentation directory %s.",
-                 files_to_validate, documentation_dir)
-  else:
-    logging.info("Going to validate all files in documentation directory %s.",
-                 documentation_dir)
-  file_paths = list(filesystem_utils.recursive_list_dir(documentation_dir))
-  do_smoke_test = bool(files_to_validate)
+                                 files_to_validate: List[str],
+                                 relative_docs_path: str = DOCS_PATH,
+                                 do_smoke_test=False):
+  """Validate specified Markdown documentation files.
+
+  Args:
+    root_dir: Absolute path to the top-level dir that contains Markdown files
+      and YAML config files.
+    files_to_validate: List of file paths in `root_dir` that should be
+      validated.
+    relative_docs_path: Relative path under `root_dir` containing the Markdown
+      files. Defaults to "assets/docs".
+    do_smoke_test: Whether the referenced model assets should be downloaded and
+      verified as well. Defaults to False.
+
+  Raises:
+    MarkdownDocumentationError: if invalid Markdown files have been found.
+  """
+  documentation_dir = os.path.join(root_dir, relative_docs_path)
+  logging.info("Going to validate files %s in documentation directory %s.",
+               files_to_validate, documentation_dir)
   validated = 0
   file_to_error = dict()
 
-  for file_path in file_paths:
-    if files_to_validate and file_path[len(documentation_dir) +
-                                       1:] not in files_to_validate:
-      continue
+  for file_path in files_to_validate:
     logging.info("Validating %s.", file_path)
     documentation_parser = DocumentationParser(root_dir, documentation_dir)
     try:
-      documentation_parser.validate(file_path, do_smoke_test)
+      absolute_path = os.path.join(documentation_dir, file_path)
+      documentation_parser.validate(absolute_path, do_smoke_test)
       validated += 1
     except MarkdownDocumentationError as e:
       file_to_error[file_path] = str(e)
@@ -625,11 +661,10 @@ def validate_documentation_files(root_dir: str,
 def main(_):
   root_dir = FLAGS.root_dir or os.getcwd()
 
-  files_to_validate = None
   if FLAGS.file:
-    files_to_validate = FLAGS.file
-
-  validate_documentation_files(root_dir, files_to_validate=files_to_validate)
+    validate_documentation_files(root_dir, FLAGS.file, do_smoke_test=True)
+  else:
+    validate_documentation_dir(root_dir)
 
 
 if __name__ == "__main__":

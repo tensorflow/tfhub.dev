@@ -441,7 +441,7 @@ class ValidatorTest(tf.test.TestCase):
       self.set_up_publisher_page("google")
       self.set_content(
           "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_parsed_placeholder(self):
     self.set_up_publisher_page("google")
@@ -451,25 +451,25 @@ class ValidatorTest(tf.test.TestCase):
     ]:
       self.set_content(
           "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_lite(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      (MINIMAL_MARKDOWN_LITE_TEMPLATE % self.model_path))
     self.set_up_publisher_page("google")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_tfjs(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      (MINIMAL_MARKDOWN_TFJS_TEMPLATE % self.model_path))
     self.set_up_publisher_page("google")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_coral(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      (MINIMAL_MARKDOWN_CORAL_TEMPLATE % self.model_path))
     self.set_up_publisher_page("google")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_with_selected_files(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -485,25 +485,25 @@ class ValidatorTest(tf.test.TestCase):
       self.set_content(
           "root/assets/docs/google/collections/text-embedding-collection/1.md",
           markdown)
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_publisher_markdown_parsed(self):
     self.set_up_publisher_page("some-publisher")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_invalid_markdown_fails(self):
     self.set_content("root/assets/docs/publisher/model/1.md",
                      "INVALID MARKDOWN")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*First line.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_not_in_publisher_dir(self):
     self.set_content("root/assets/docs/gooogle/models/wrong-location/1.md",
                      self.minimal_markdown)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*placed in the publisher directory.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_fails_if_publisher_page_does_not_exist(self):
     self.set_content(
@@ -511,25 +511,25 @@ class ValidatorTest(tf.test.TestCase):
         MINIMAL_MARKDOWN_WITH_UNKNOWN_PUBLISHER)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*Publisher documentation does not.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_does_not_end_with_md_fails(self):
     self.set_content("root/assets/docs/google/models/wrong-extension/1.mdz",
                      self.minimal_markdown)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  r".*end with '\.md.'*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_publisher_markdown_at_incorrect_location_fails(self):
     self.set_content("root/assets/docs/google/publisher.md",
                      MINIMAL_PUBLISHER_MARKDOWN % "some-publisher")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  r".*some-publisher\.md.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_publisher_markdown_at_correct_location(self):
     self.set_up_publisher_page("some-publisher")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_handle(self):
     for markdown in [
@@ -540,7 +540,7 @@ class ValidatorTest(tf.test.TestCase):
       self.set_content("root/assets/docs/google/models/model/1.md", markdown)
       with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                    ".*First line of the documentation*"):
-        validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+        validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_without_description(self):
     for markdown in [
@@ -551,14 +551,14 @@ class ValidatorTest(tf.test.TestCase):
           "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
       with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                    ".*has to contain a short description.*"):
-        validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+        validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_missing_metadata(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      MARKDOWN_WITH_MISSING_METADATA)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*missing.*fine-tunable.*module-type.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unsupported_format_metadata(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -566,14 +566,14 @@ class ValidatorTest(tf.test.TestCase):
     with self.assertRaisesRegexp(
         validator.MarkdownDocumentationError, "The 'format' metadata.*but "
         "was 'unsupported'."):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_forbidden_duplicate_metadata(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      MARKDOWN_WITH_FORBIDDEN_DUPLICATE_METADATA)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*duplicate.*asset-path.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_allowed_duplicate_metadata(self):
     self.set_up_publisher_page("google")
@@ -585,14 +585,14 @@ class ValidatorTest(tf.test.TestCase):
     self.set_content("root/tags/language.yaml", language_yaml)
     self.set_content("root/assets/docs/google/models/model/1.md",
                      MARKDOWN_WITH_ALLOWED_DUPLICATE_METADATA)
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unexpected_lines(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      MARKDOWN_WITH_UNEXPECTED_LINES)
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*Unexpected line.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_full(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -625,7 +625,7 @@ class ValidatorTest(tf.test.TestCase):
       validator.validate_documentation_files(
           root_dir=self.tmp_root_dir,
           files_to_validate=["google/models/text-embedding-model/1.md"],
-      )
+          do_smoke_test=True)
 
   def test_asset_path_is_legacy_and_modified(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -636,7 +636,7 @@ class ValidatorTest(tf.test.TestCase):
       validator.validate_documentation_files(
           root_dir=self.tmp_root_dir,
           files_to_validate=["google/models/text-embedding-model/1.md"],
-      )
+          do_smoke_test=True)
 
   def test_asset_path_is_legacy_and_unmodified(self):
     self.asset_path_modified = mock.patch.object(
@@ -650,7 +650,7 @@ class ValidatorTest(tf.test.TestCase):
     validator.validate_documentation_files(
         root_dir=self.tmp_root_dir,
         files_to_validate=["google/models/text-embedding-model/1.md"],
-    )
+        do_smoke_test=True)
 
   def test_bad_model_does_not_pass_smoke_test(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -661,25 +661,26 @@ class ValidatorTest(tf.test.TestCase):
       validator.validate_documentation_files(
           root_dir=self.tmp_root_dir,
           files_to_validate=["google/models/text-embedding-model/1.md"],
+          do_smoke_test=True
       )
 
   def test_markdown_with_allowed_license(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
                      MINIMAL_MARKDOWN_WITH_ALLOWED_LICENSE)
     self.set_up_publisher_page("google")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_colab_button(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
                      MARKDOWN_WITH_COLAB_BUTTON)
     self.set_up_publisher_page("google")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_demo_button(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
                      MARKDOWN_WITH_DEMO_BUTTON)
     self.set_up_publisher_page("google")
-    validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+    validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unknown_license(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
@@ -687,7 +688,7 @@ class ValidatorTest(tf.test.TestCase):
     self.set_up_publisher_page("google")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*specify a license id from list.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_module_type(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
@@ -695,7 +696,7 @@ class ValidatorTest(tf.test.TestCase):
     self.set_up_publisher_page("google")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*metadata has to start with.*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_forbidden_format_metadata(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
@@ -704,7 +705,7 @@ class ValidatorTest(tf.test.TestCase):
     with self.assertRaisesRegexp(
         validator.MarkdownDocumentationError,
         r".*contains unsupported metadata properties: \['format'\].*"):
-      validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+      validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unsupported_metadata(self):
     self.set_up_publisher_page("google")
@@ -718,7 +719,7 @@ class ValidatorTest(tf.test.TestCase):
           validator.MarkdownDocumentationError,
           r".*contains unsupported metadata properties: \['unsupported_tag'\].*"
       ):
-        validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+        validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unsupported_language(self):
     self.set_up_publisher_page("google")
@@ -732,7 +733,7 @@ class ValidatorTest(tf.test.TestCase):
           validator.MarkdownDocumentationError,
           r".*Unsupported languages were found: {'non-existent'}. "
           r"Please add them to .*"):
-        validator.validate_documentation_files(root_dir=self.tmp_root_dir)
+        validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_model_with_invalid_filenames_fails_smoke_test(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",

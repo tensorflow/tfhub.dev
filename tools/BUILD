@@ -22,6 +22,9 @@ pytype_strict_binary(
     srcs = ["validator.py"],
     python_version = "PY3",
     srcs_version = "PY3",
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [":validator_lib"],
 )
 

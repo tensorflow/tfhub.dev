@@ -44,7 +44,6 @@ import tensorflow_hub as hub
 import filesystem_utils
 import yaml_parser
 
-
 # pylint: disable=g-direct-tensorflow-import
 from tensorflow.python.saved_model import loader_impl
 # pylint: enable=g-direct-tensorflow-import
@@ -57,7 +56,8 @@ DOCS_PATH = "assets/docs"
 # Regex pattern for the first line of the documentation of Saved Models.
 # Example: "Module google/universal-sentence-encoder/1"
 MODEL_HANDLE_PATTERN = (
-    r"# Module (?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
+    r"# Module "
+    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
 # Regex pattern for the first line of the documentation of placeholder MD files.
 # Example: "Placeholder google/universal-sentence-encoder/1"
 PLACEHOLDER_HANDLE_PATTERN = (
@@ -186,7 +186,8 @@ class ParsingPolicy(object):
       raise MarkdownDocumentationError(
           "The MD file contains unsupported metadata properties: "
           f"{sorted(provided_metadata.difference(supported_metadata))}. Please "
-          "refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown format.")
+          "refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown format."
+      )
 
   def assert_no_duplicate_metadata(self, metadata: Dict[str, Set[str]]):
     duplicate_metadata = list()
@@ -249,9 +250,12 @@ class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
   def __init__(self, publisher: str, model_name: str, model_version: str):
-    super(CollectionParsingPolicy,
-          self).__init__(publisher, model_name, model_version, ["module-type"],
-                         ["dataset", "language", "network-architecture"])
+    super(CollectionParsingPolicy, self).__init__(
+        publisher,
+        model_name,
+        model_version,
+        required_metadata=["module-type"],
+        optional_metadata=["dataset", "language", "network-architecture"])
 
   @property
   def type_name(self):
@@ -263,7 +267,11 @@ class PlaceholderParsingPolicy(ParsingPolicy):
 
   def __init__(self, publisher: str, model_name: str, model_version: str):
     super(PlaceholderParsingPolicy, self).__init__(
-        publisher, model_name, model_version, ["module-type"], [
+        publisher,
+        model_name,
+        model_version,
+        required_metadata=["module-type"],
+        optional_metadata=[
             "dataset", "fine-tunable", "interactive-model-name", "language",
             "license", "network-architecture"
         ])
@@ -278,8 +286,13 @@ class SavedModelParsingPolicy(ParsingPolicy):
 
   def __init__(self, publisher: str, model_name: str, model_version: str):
     super(SavedModelParsingPolicy, self).__init__(
-        publisher, model_name, model_version,
-        ["asset-path", "module-type", "fine-tunable", "format"], [
+        publisher,
+        model_name,
+        model_version,
+        required_metadata=[
+            "asset-path", "module-type", "fine-tunable", "format"
+        ],
+        optional_metadata=[
             "dataset", "interactive-model-name", "language", "license",
             "network-architecture"
         ])
@@ -317,9 +330,12 @@ class TfjsParsingPolicy(ParsingPolicy):
   """ParsingPolicy for TF.js documentation."""
 
   def __init__(self, publisher: str, model_name: str, model_version: str):
-    super(TfjsParsingPolicy,
-          self).__init__(publisher, model_name, model_version,
-                         ["asset-path", "parent-model"], [])
+    super(TfjsParsingPolicy, self).__init__(
+        publisher,
+        model_name,
+        model_version,
+        required_metadata=["asset-path", "parent-model"],
+        optional_metadata=["interactive-model-name"])
 
   @property
   def type_name(self) -> str:
@@ -349,7 +365,10 @@ class PublisherParsingPolicy(ParsingPolicy):
   should not contain a 'format' tag as it has no effect.
   """
 
-  def __init__(self, publisher: str, model_name: str = "", model_version: str = ""):
+  def __init__(self,
+               publisher: str,
+               model_name: str = "",
+               model_version: str = ""):
     super(PublisherParsingPolicy, self).__init__(publisher, model_name,
                                                  model_version, [], [])
 
@@ -490,8 +509,7 @@ class DocumentationParser(object):
         # Colab.
         self._current_index += 1
         continue
-      if self._lines[self._current_index].startswith(
-          "[![Open Demo]]"):
+      if self._lines[self._current_index].startswith("[![Open Demo]]"):
         # Demo button.
         self._current_index += 1
         continue

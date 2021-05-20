@@ -35,7 +35,7 @@ import os
 import re
 import subprocess
 import sys
-from typing import Dict, List, Set
+from typing import AbstractSet, Mapping, MutableSequence
 
 from absl import app
 from absl import logging
@@ -57,12 +57,12 @@ DOCS_PATH = "assets/docs"
 # Example: "Module google/universal-sentence-encoder/1"
 MODEL_HANDLE_PATTERN = (
     r"# Module "
-    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
+    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")
 # Regex pattern for the first line of the documentation of placeholder MD files.
 # Example: "Placeholder google/universal-sentence-encoder/1"
 PLACEHOLDER_HANDLE_PATTERN = (
     r"# Placeholder "
-    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
+    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")
 # Regex pattern for the first line of the documentation of TF Lite models.
 # Example: "# Lite google/spice/1"
 LITE_HANDLE_PATTERN = (
@@ -104,6 +104,11 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
     CORAL_HANDLE_PATTERN: "Coral"
 }
 
+TARFILE_SUFFIX = ".tar.gz"
+TFLITE_SUFFIX = ".tflite"
+
+# Dict key that maps to the specified asset-path of the Markdown file.
+ASSET_PATH_KEY = "asset-path"
 # Dict key that maps to all specified languages from the Markdown file.
 LANGUAGE_KEY = "language"
 
@@ -112,11 +117,33 @@ class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
 
 
-def _validate_file_paths(model_dir: str):
+def _validate_file_paths(model_dir: str) -> None:
   valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
   for filepath in filesystem_utils.recursive_list_dir(model_dir):
     if not valid_path_regex.fullmatch(filepath):
       raise MarkdownDocumentationError(f"Invalid filepath in asset: {filepath}")
+
+
+def _is_asset_path_modified(file_path: str) -> bool:
+  """Returns True if the asset-path tag has been added or modified."""
+  git_diff = subprocess.Popen(["git", "diff", "origin/master", file_path],
+                              stdout=subprocess.PIPE)
+  grep_asset_path = subprocess.Popen(["grep", "+<!-- asset-path:"],
+                                     stdin=git_diff.stdout,
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+  git_diff.stdout.close()
+  grep_asset_path.communicate()
+  return_code = grep_asset_path.returncode
+  # grep exits with code 1 if it cannot find "+<!-- asset-path" in `git diff`.
+  # Raise an error if the exit code is not 0 or 1.
+  if return_code == 0:
+    return True
+  elif return_code == 1:
+    return False
+  else:
+    raise MarkdownDocumentationError(
+        f"Internal: grep command returned unexpected exit code {return_code}")
 
 
 class ParsingPolicy(object):
@@ -127,7 +154,8 @@ class ParsingPolicy(object):
   """
 
   def __init__(self, publisher: str, model_name: str, model_version: str,
-               required_metadata: List[str], optional_metadata: List[str]):
+               required_metadata: MutableSequence[str],
+               optional_metadata: MutableSequence[str]) -> None:
     self._publisher = publisher
     self._model_name = model_name
     self._model_version = model_version
@@ -136,15 +164,22 @@ class ParsingPolicy(object):
 
   @property
   @abc.abstractmethod
-  def type_name(self):
-    """Return readable name of the parsed type."""
+  def type_name(self) -> str:
+    """A readable name for the parsed type."""
+    raise NotImplementedError
+
+  @property
+  @abc.abstractmethod
+  def supported_asset_path_suffix(self) -> str:
+    """String describing the supported file ending of the compressed file."""
+    raise NotImplementedError
 
   @property
   def publisher(self) -> str:
     return self._publisher
 
   @property
-  def supported_metadata(self) -> List[str]:
+  def supported_metadata(self) -> MutableSequence[str]:
     """Return which metadata tags are supported."""
     return self._required_metadata + self._optional_metadata
 
@@ -152,7 +187,7 @@ class ParsingPolicy(object):
     """Returns the top level publisher directory."""
     return os.path.join(root_dir, self._publisher)
 
-  def assert_correct_file_path(self, file_path: str, root_dir: str):
+  def assert_correct_file_path(self, file_path: str, root_dir: str) -> None:
     if not file_path.endswith(".md"):
       raise MarkdownDocumentationError(
           "Documentation file does not end with '.md': %s" % file_path)
@@ -164,12 +199,12 @@ class ParsingPolicy(object):
           f"{self.type_name} with publisher '{self._publisher}' should be "
           f"placed in the publisher directory: '{publisher_dir}'")
 
-  def assert_can_resolve_asset(self, asset_path: str):
+  def assert_can_resolve_asset(self, asset_path: str) -> None:
     """Check whether the asset path can be resolved."""
     pass
 
-  def assert_metadata_contains_required_fields(self, metadata: Dict[str,
-                                                                    Set[str]]):
+  def assert_metadata_contains_required_fields(
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     required_metadata = set(self._required_metadata)
     provided_metadata = set(metadata.keys())
     if not provided_metadata.issuperset(required_metadata):
@@ -178,8 +213,8 @@ class ParsingPolicy(object):
           "%s. Please refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown "
           "format." % sorted(required_metadata.difference(provided_metadata)))
 
-  def assert_metadata_contains_supported_fields(self, metadata: Dict[str,
-                                                                     Set[str]]):
+  def assert_metadata_contains_supported_fields(
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     supported_metadata = set(self.supported_metadata)
     provided_metadata = set(metadata.keys())
     if not supported_metadata.issuperset(provided_metadata):
@@ -189,7 +224,8 @@ class ParsingPolicy(object):
           "refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown format."
       )
 
-  def assert_no_duplicate_metadata(self, metadata: Dict[str, Set[str]]):
+  def assert_no_duplicate_metadata(
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     duplicate_metadata = list()
     for key, values in metadata.items():
       if key not in REPEATED_TAG_KEYS and len(values) > 1:
@@ -201,7 +237,63 @@ class ParsingPolicy(object):
           "information about markdown format. In particular the duplicated "
           f"metadata are: {sorted(duplicate_metadata)}")
 
-  def assert_correct_module_types(self, metadata: Dict[str, Set[str]]):
+  def assert_correct_asset_path(self, metadata: Mapping[str, AbstractSet[str]],
+                                file_path: str, do_smoke_test: bool) -> None:
+    """Checks whether the given asset path can be downloaded.
+
+    If an asset path is added or modified, the function checks whether the path
+    has the correct file ending. If the path leads to github.com, it checks that
+    the asset is not forbidden to be fetched by GitHub's robots.txt file. If
+    `do_smoke_test` is True, it tries to download and parse the asset.
+
+    Args:
+      metadata: Mapping of metadata fields to their values e.g.
+        {"asset-path": {"model.tar.gz"}}
+      file_path: Path to the validated file
+      do_smoke_test: Whether the referenced asset should be downloaded. Should
+        only be used for validating individual files.
+
+    Raises:
+      MarkdownDocumentationError:
+        - if the asset-path key does not contain exactly one element in its set.
+        - if the one element does not end in the expected suffix.
+        - if github.com/robots.txt forbids downloading the asset.
+        - if the asset can be downloaded but not be resolved to a SavedModel.
+    """
+    if ASSET_PATH_KEY not in metadata:
+      return
+
+    if not _is_asset_path_modified(file_path):
+      logging.info("Skipping asset path validation since the tag is not added "
+                   "or modified.")
+      return
+
+    if len(metadata[ASSET_PATH_KEY]) != 1:
+      raise MarkdownDocumentationError(
+          "No more than one asset-path tag may be specified.")
+
+    asset_path = list(metadata[ASSET_PATH_KEY])[0]
+    if not asset_path.endswith(self.supported_asset_path_suffix):
+      raise MarkdownDocumentationError(
+          f"Expected asset-path to end with {self.supported_asset_path_suffix} "
+          f"but was {asset_path}.")
+
+    # GitHub's robots.txt disallows fetches to */download, which means that
+    # the asset-path URL cannot be fetched. Markdown validation should fail if
+    # asset-path matches this regex.
+    github_download_url_regex = re.compile(
+        "https://github.com/.*/releases/download/.*")
+    if github_download_url_regex.fullmatch(asset_path):
+      raise MarkdownDocumentationError(
+          f"The asset-path {asset_path} is a url that cannot be automatically "
+          "fetched. Please provide an asset-path that is allowed to be fetched "
+          "by its robots.txt.")
+
+    if do_smoke_test:
+      self.assert_can_resolve_asset(asset_path)
+
+  def assert_correct_module_types(
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     if "module-type" in metadata:
       allowed_prefixes = ["image-", "text-", "audio-", "video-"]
       for value in metadata["module-type"]:
@@ -210,8 +302,8 @@ class ParsingPolicy(object):
               "The 'module-type' metadata has to start with any of 'image-'"
               ", 'text', 'audio-', 'video-', but is: '{value}'")
 
-  def assert_correct_languages(self, metadata: Dict[str, Set[str]],
-                               root_dir: str):
+  def assert_correct_languages(self, metadata: Mapping[str, AbstractSet[str]],
+                               root_dir: str) -> None:
     """Check that all languages are defined in tags/language.yaml.
 
     Args:
@@ -236,8 +328,8 @@ class ParsingPolicy(object):
           f"Unsupported languages were found: {unsupported_languages}. "
           f"Please add them to language.yaml.")
 
-  def assert_correct_metadata(self, metadata: Dict[str, Set[str]],
-                              root_dir: str):
+  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
+                              root_dir: str) -> None:
     """Assert that correct metadata is present."""
     self.assert_metadata_contains_required_fields(metadata)
     self.assert_metadata_contains_supported_fields(metadata)
@@ -249,7 +341,8 @@ class ParsingPolicy(object):
 class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
-  def __init__(self, publisher: str, model_name: str, model_version: str):
+  def __init__(self, publisher: str, model_name: str,
+               model_version: str) -> None:
     super(CollectionParsingPolicy, self).__init__(
         publisher,
         model_name,
@@ -258,14 +351,15 @@ class CollectionParsingPolicy(ParsingPolicy):
         optional_metadata=["dataset", "language", "network-architecture"])
 
   @property
-  def type_name(self):
+  def type_name(self) -> str:
     return "Collection"
 
 
 class PlaceholderParsingPolicy(ParsingPolicy):
   """ParsingPolicy for placeholder files."""
 
-  def __init__(self, publisher: str, model_name: str, model_version: str):
+  def __init__(self, publisher: str, model_name: str,
+               model_version: str) -> None:
     super(PlaceholderParsingPolicy, self).__init__(
         publisher,
         model_name,
@@ -284,7 +378,8 @@ class PlaceholderParsingPolicy(ParsingPolicy):
 class SavedModelParsingPolicy(ParsingPolicy):
   """ParsingPolicy for SavedModel documentation."""
 
-  def __init__(self, publisher: str, model_name: str, model_version: str):
+  def __init__(self, publisher: str, model_name: str,
+               model_version: str) -> None:
     super(SavedModelParsingPolicy, self).__init__(
         publisher,
         model_name,
@@ -301,8 +396,12 @@ class SavedModelParsingPolicy(ParsingPolicy):
   def type_name(self) -> str:
     return "Module"
 
-  def assert_correct_metadata(self, metadata: Dict[str, Set[str]],
-                              root_dir: str):
+  @property
+  def supported_asset_path_suffix(self) -> str:
+    return TARFILE_SUFFIX
+
+  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
+                              root_dir: str) -> None:
     super().assert_correct_metadata(metadata, root_dir)
 
     format_value = list(metadata["format"])[0]
@@ -311,7 +410,7 @@ class SavedModelParsingPolicy(ParsingPolicy):
           f"The 'format' metadata should be one of {SAVED_MODEL_FORMATS} "
           f"but was '{format_value}'.")
 
-  def assert_can_resolve_asset(self, asset_path: str):
+  def assert_can_resolve_asset(self, asset_path: str) -> None:
     """Attempt to hub.resolve the given asset path."""
     try:
       resolved_model = hub.resolve(asset_path)
@@ -329,7 +428,8 @@ class SavedModelParsingPolicy(ParsingPolicy):
 class TfjsParsingPolicy(ParsingPolicy):
   """ParsingPolicy for TF.js documentation."""
 
-  def __init__(self, publisher: str, model_name: str, model_version: str):
+  def __init__(self, publisher: str, model_name: str,
+               model_version: str) -> None:
     super(TfjsParsingPolicy, self).__init__(
         publisher,
         model_name,
@@ -341,6 +441,10 @@ class TfjsParsingPolicy(ParsingPolicy):
   def type_name(self) -> str:
     return "Tfjs"
 
+  @property
+  def supported_asset_path_suffix(self) -> str:
+    return TARFILE_SUFFIX
+
 
 class LiteParsingPolicy(TfjsParsingPolicy):
   """ParsingPolicy for TFLite documentation."""
@@ -349,8 +453,12 @@ class LiteParsingPolicy(TfjsParsingPolicy):
   def type_name(self) -> str:
     return "Lite"
 
+  @property
+  def supported_asset_path_suffix(self) -> str:
+    return TFLITE_SUFFIX
 
-class CoralParsingPolicy(TfjsParsingPolicy):
+
+class CoralParsingPolicy(LiteParsingPolicy):
   """ParsingPolicy for Coral documentation."""
 
   @property
@@ -368,7 +476,7 @@ class PublisherParsingPolicy(ParsingPolicy):
   def __init__(self,
                publisher: str,
                model_name: str = "",
-               model_version: str = ""):
+               model_version: str = "") -> None:
     super(PublisherParsingPolicy, self).__init__(publisher, model_name,
                                                  model_version, [], [])
 
@@ -380,7 +488,7 @@ class PublisherParsingPolicy(ParsingPolicy):
     """Returns the expected path of the documentation file."""
     return os.path.join(root_dir, self._publisher, self._publisher + ".md")
 
-  def assert_correct_file_path(self, file_path: str, root_dir: str):
+  def assert_correct_file_path(self, file_path: str, root_dir: str) -> None:
     """Extend base method by also checking for /publisher/publisher.md."""
     expected_file_path = self.get_expected_file_path(root_dir)
     if expected_file_path and file_path != expected_file_path:
@@ -394,7 +502,7 @@ class PublisherParsingPolicy(ParsingPolicy):
 class DocumentationParser(object):
   """Class used for parsing model documentation strings."""
 
-  def __init__(self, root_dir: str, documentation_dir: str):
+  def __init__(self, root_dir: str, documentation_dir: str) -> None:
     self._root_dir = root_dir
     self._documentation_dir = documentation_dir
     self._parsed_metadata = dict()
@@ -412,7 +520,7 @@ class DocumentationParser(object):
   def parsed_metadata(self) -> str:
     return self._parsed_metadata
 
-  def raise_error(self, message: str):
+  def raise_error(self, message: str) -> None:
     raise MarkdownDocumentationError(message)
 
   def get_policy_from_first_line(self, first_line: str) -> ParsingPolicy:
@@ -448,7 +556,7 @@ class DocumentationParser(object):
         f"first line is '{first_line}'")
     # pytype: enable=bad-return-type
 
-  def assert_publisher_page_exists(self):
+  def assert_publisher_page_exists(self) -> None:
     """Assert that publisher page exists for the publisher of this model."""
     # Use a publisher policy to get the expected documentation page path.
     publisher_policy = PublisherParsingPolicy(self.policy.publisher)
@@ -459,7 +567,7 @@ class DocumentationParser(object):
           "Publisher documentation does not exist. "
           f"It should be added to {expected_publisher_doc_file_path}.")
 
-  def consume_description(self):
+  def consume_description(self) -> None:
     """Consume second line with a short model description."""
     description_lines = []
     self._current_index = 1
@@ -476,7 +584,7 @@ class DocumentationParser(object):
           "Second line of the documentation file has to contain a short "
           "description. For example 'Word2vec text embedding model.'.")
 
-  def consume_metadata(self):
+  def consume_metadata(self) -> None:
     """Consume all metadata."""
     while self._current_index < len(
         self._lines) and (not self._lines[self._current_index].startswith("#")):
@@ -520,7 +628,7 @@ class DocumentationParser(object):
           "https://www.tensorflow.org/hub/writing_model_documentation for "
           "information about markdown format.")
 
-  def assert_allowed_license(self):
+  def assert_allowed_license(self) -> None:
     """Validate provided license."""
     if "license" in self._parsed_metadata:
       license_id = list(self._parsed_metadata["license"])[0]
@@ -535,52 +643,7 @@ class DocumentationParser(object):
             "Please specify a license id from list of allowed ids: "
             f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
 
-  def _is_asset_path_modified(self) -> bool:
-    """Return True if the asset-path tag has been added or modified."""
-    git_diff = subprocess.Popen(
-        ["git", "diff", "origin/master", f"{self._file_path}"],
-        stdout=subprocess.PIPE)
-    grep_asset_path = subprocess.Popen(["grep", "+<!-- asset-path:"],
-                                       stdin=git_diff.stdout,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
-    git_diff.stdout.close()
-    grep_asset_path.communicate()
-    return_code = grep_asset_path.returncode
-    # grep exits with code 1 if it cannot find "+<!-- asset-path" in `git diff`.
-    # Raise an error if the exit code is not 0 or 1.
-    if return_code == 0:
-      return True
-    elif return_code == 1:
-      return False
-    else:
-      self.raise_error(
-          f"Internal: grep command returned unexpected exit code {return_code}")
-
-  def smoke_test_asset(self):
-    """Smoke test asset provided on asset-path metadata."""
-    if "asset-path" not in self._parsed_metadata:
-      return
-
-    if not self._is_asset_path_modified():
-      logging.info("Skipping asset smoke test since the tag is not added or "
-                   "modified.")
-      return
-    asset_path = list(self._parsed_metadata["asset-path"])[0]
-
-    # GitHub's robots.txt disallows fetches to */download, which means that
-    # the asset-path URL cannot be fetched. Markdown validation should fail if
-    # asset-path matches this regex.
-    github_download_url_regex = re.compile(
-        "https://github.com/.*/releases/download/.*")
-    if github_download_url_regex.fullmatch(asset_path):
-      self.raise_error(
-          f"The asset-path {asset_path} is a url that cannot be automatically "
-          "fetched. Please provide an asset-path that is allowed to be fetched "
-          "by its robots.txt.")
-    self.policy.assert_can_resolve_asset(asset_path)
-
-  def validate(self, file_path: str, do_smoke_test: bool):
+  def validate(self, file_path: str, do_smoke_test: bool) -> None:
     """Validate one documentation markdown file."""
     self._file_path = file_path
     raw_content = filesystem_utils.get_content(self._file_path)
@@ -596,16 +659,16 @@ class DocumentationParser(object):
       # Populate _parsed_metadata with the metadata tag mapping
       self.consume_metadata()
       self.policy.assert_correct_metadata(self._parsed_metadata, self._root_dir)
+      self.policy.assert_correct_asset_path(self._parsed_metadata,
+                                            self._file_path, do_smoke_test)
     except MarkdownDocumentationError as e:
       self.raise_error(str(e))
     self.assert_allowed_license()
     self.assert_publisher_page_exists()
-    if do_smoke_test:
-      self.smoke_test_asset()
 
 
 def validate_documentation_dir(root_dir: str,
-                               relative_docs_path: str = DOCS_PATH):
+                               relative_docs_path: str = DOCS_PATH) -> None:
   """Validate Markdown files in `root_dir/relative_docs_path`.
 
   Args:
@@ -631,9 +694,9 @@ def validate_documentation_dir(root_dir: str,
 
 
 def validate_documentation_files(root_dir: str,
-                                 files_to_validate: List[str],
+                                 files_to_validate: MutableSequence[str],
                                  relative_docs_path: str = DOCS_PATH,
-                                 do_smoke_test=False):
+                                 do_smoke_test=False) -> None:
   """Validate specified Markdown documentation files.
 
   Args:

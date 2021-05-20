@@ -50,7 +50,7 @@ MARKDOWN_SAVED_MODEL_UNSUPPORTED_TAG = """# Module google/model/1
 Simple description spanning
 multiple lines.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
@@ -61,7 +61,7 @@ MARKDOWN_SAVED_MODEL_UNSUPPORTED_LANGUAGE = """# Module google/model/1
 Simple description spanning
 multiple lines.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
@@ -135,7 +135,7 @@ MINIMAL_MARKDOWN_LITE_WITH_FORBIDDEN_FORMAT = """# Lite google/model/lite/1
 Simple description spanning
 multiple lines.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tflite -->
 <!-- parent-model: google/text-embedding-model/1 -->
 <!-- format: saved_model -->
 
@@ -146,7 +146,7 @@ MINIMAL_MARKDOWN_LITE_WITH_UNSUPPORTED_TAG = """# Lite google/model/lite/1
 Simple description spanning
 multiple lines.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tflite -->
 <!-- parent-model: google/text-embedding-model/1 -->
 <!-- unsupported_tag: value -->
 
@@ -177,7 +177,7 @@ MINIMAL_MARKDOWN_WITH_UNKNOWN_PUBLISHER = """# Module publisher-without-page/tex
 Simple description spanning
 multiple lines.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
@@ -188,7 +188,7 @@ multiple lines.
 MINIMAL_MARKDOWN_WITH_ALLOWED_LICENSE = """# Module google/model/1
 Simple description.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -200,7 +200,7 @@ Simple description.
 MINIMAL_MARKDOWN_WITH_UNKNOWN_LICENSE = """# Module google/model/1
 Simple description.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -212,7 +212,7 @@ Simple description.
 MINIMAL_MARKDOWN_WITH_BAD_MODULE_TYPE = """# Module google/model/1
 Simple description.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type: something-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -224,7 +224,7 @@ Simple description.
 MINIMAL_MARKDOWN_WITH_UNSUPPORTED_FORMAT = """# Module google/model/1
 Simple description.
 
-<!-- asset-path: /path/to/model -->
+<!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: unsupported -->
@@ -312,7 +312,7 @@ One line description.
 
 MARKDOWN_WITH_COLAB_BUTTON = """# Module google/text-embedding-model/1
 One line description.
-<!-- asset-path: legacy -->
+<!-- asset-path: https://path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -324,7 +324,7 @@ One line description.
 
 MARKDOWN_WITH_DEMO_BUTTON = """# Module google/text-embedding-model/1
 One line description.
-<!-- asset-path: legacy -->
+<!-- asset-path: https://path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -391,8 +391,8 @@ class ValidatorTest(tf.test.TestCase):
     self.tmp_dir = self.create_tempdir()
     self.tmp_root_dir = os.path.join(self.tmp_dir, "root")
     self.tmp_docs_dir = os.path.join(self.tmp_root_dir, "assets", "docs")
-    self.model_path = os.path.join(self.tmp_dir, "model_1")
-    self.not_a_model_path = os.path.join(self.tmp_dir, "not_a_model")
+    self.model_path = os.path.join(self.tmp_dir, "model_1.tar.gz")
+    self.not_a_model_path = os.path.join(self.tmp_dir, "not_a_model.tar.gz")
     self.save_dummy_model(self.model_path)
     self.minimal_markdown = MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
     self.maximal_markdown = MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
@@ -401,9 +401,7 @@ class ValidatorTest(tf.test.TestCase):
     language_yaml = "values:\n  - id: en\n    display_name: English"
     self.set_content("root/tags/language.yaml", language_yaml)
     self.asset_path_modified = mock.patch.object(
-        validator.DocumentationParser,
-        "_is_asset_path_modified",
-        return_value=True)
+        validator, "_is_asset_path_modified", return_value=True)
     self.asset_path_modified.start()
     self.addCleanup(self.asset_path_modified.stop)
 
@@ -454,8 +452,9 @@ class ValidatorTest(tf.test.TestCase):
       validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_lite(self):
+    lite_model = os.path.join(self.tmp_dir, "model.tflite")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     (MINIMAL_MARKDOWN_LITE_TEMPLATE % self.model_path))
+                     (MINIMAL_MARKDOWN_LITE_TEMPLATE % lite_model))
     self.set_up_publisher_page("google")
     validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
@@ -466,8 +465,9 @@ class ValidatorTest(tf.test.TestCase):
     validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_coral(self):
+    lite_model = os.path.join(self.tmp_dir, "model.tflite")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     (MINIMAL_MARKDOWN_CORAL_TEMPLATE % self.model_path))
+                     (MINIMAL_MARKDOWN_CORAL_TEMPLATE % lite_model))
     self.set_up_publisher_page("google")
     validator.validate_documentation_dir(root_dir=self.tmp_root_dir)
 
@@ -618,7 +618,7 @@ class ValidatorTest(tf.test.TestCase):
     self.set_content(
         "root/assets/docs/google/models/text-embedding-model/1.md",
         MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE %
-        "https://github.com/some_repo/releases/download/some_path")
+        "https://github.com/some_repo/releases/download/some_path.tar.gz")
     self.set_up_publisher_page("google")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  ".*cannot be automatically fetched.*"):
@@ -632,7 +632,7 @@ class ValidatorTest(tf.test.TestCase):
                      MARKDOWN_WITH_LEGACY_TAG)
     self.set_up_publisher_page("google")
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*failed to parse.*"):
+                                 ".*end with .tar.gz but was legacy."):
       validator.validate_documentation_files(
           root_dir=self.tmp_root_dir,
           files_to_validate=["google/models/text-embedding-model/1.md"],
@@ -640,9 +640,7 @@ class ValidatorTest(tf.test.TestCase):
 
   def test_asset_path_is_legacy_and_unmodified(self):
     self.asset_path_modified = mock.patch.object(
-        validator.DocumentationParser,
-        "_is_asset_path_modified",
-        return_value=False)
+        validator, "_is_asset_path_modified", return_value=False)
     self.asset_path_modified.start()
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      MARKDOWN_WITH_LEGACY_TAG)

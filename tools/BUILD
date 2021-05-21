@@ -66,6 +66,7 @@ pytype_strict_library(
         ":yaml_parser",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/logging",
+        "//third_party/py/attr",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
         "@org_tensorflow//tensorflow/python/saved_model:loader",

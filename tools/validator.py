@@ -39,6 +39,7 @@ from typing import AbstractSet, Mapping, MutableSequence
 
 from absl import app
 from absl import logging
+import attr
 import tensorflow as tf
 import tensorflow_hub as hub
 import filesystem_utils
@@ -146,6 +147,20 @@ def _is_asset_path_modified(file_path: str) -> bool:
         f"Internal: grep command returned unexpected exit code {return_code}")
 
 
+@attr.s(auto_attribs=True)
+class ValidationConfig(object):
+  """A simple value class containing information for the validation process.
+
+  Attributes:
+    skip_asset_check: A boolean indicating whether the "asset-path" tag should
+      be skipped for validation. Defaults to False.
+    do_smoke_test: A boolean indicating whether the referenced asset should be
+      downloaded. Defaults to False.
+  """
+  skip_asset_check: bool = False
+  do_smoke_test: bool = False
+
+
 class ParsingPolicy(object):
   """The base class for type specific parsing policies.
 
@@ -237,8 +252,9 @@ class ParsingPolicy(object):
           "information about markdown format. In particular the duplicated "
           f"metadata are: {sorted(duplicate_metadata)}")
 
-  def assert_correct_asset_path(self, metadata: Mapping[str, AbstractSet[str]],
-                                file_path: str, do_smoke_test: bool) -> None:
+  def assert_correct_asset_path(self, validation_config: ValidationConfig,
+                                metadata: Mapping[str, AbstractSet[str]],
+                                file_path: str) -> None:
     """Checks whether the given asset path can be downloaded.
 
     If an asset path is added or modified, the function checks whether the path
@@ -247,11 +263,12 @@ class ParsingPolicy(object):
     `do_smoke_test` is True, it tries to download and parse the asset.
 
     Args:
+      validation_config: The config specifying whether the referenced asset
+        should be downloaded. That should only be used for validating individual
+        files.
       metadata: Mapping of metadata fields to their values e.g.
         {"asset-path": {"model.tar.gz"}}
       file_path: Path to the validated file
-      do_smoke_test: Whether the referenced asset should be downloaded. Should
-        only be used for validating individual files.
 
     Raises:
       MarkdownDocumentationError:
@@ -289,7 +306,7 @@ class ParsingPolicy(object):
           "fetched. Please provide an asset-path that is allowed to be fetched "
           "by its robots.txt.")
 
-    if do_smoke_test:
+    if validation_config.do_smoke_test:
       self.assert_can_resolve_asset(asset_path)
 
   def assert_correct_module_types(
@@ -643,7 +660,8 @@ class DocumentationParser(object):
             "Please specify a license id from list of allowed ids: "
             f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
 
-  def validate(self, file_path: str, do_smoke_test: bool) -> None:
+  def validate(self, validation_config: ValidationConfig,
+               file_path: str) -> None:
     """Validate one documentation markdown file."""
     self._file_path = file_path
     raw_content = filesystem_utils.get_content(self._file_path)
@@ -659,19 +677,24 @@ class DocumentationParser(object):
       # Populate _parsed_metadata with the metadata tag mapping
       self.consume_metadata()
       self.policy.assert_correct_metadata(self._parsed_metadata, self._root_dir)
-      self.policy.assert_correct_asset_path(self._parsed_metadata,
-                                            self._file_path, do_smoke_test)
+      if not validation_config.skip_asset_check:
+        self.policy.assert_correct_asset_path(validation_config,
+                                              self._parsed_metadata,
+                                              self._file_path)
     except MarkdownDocumentationError as e:
       self.raise_error(str(e))
     self.assert_allowed_license()
     self.assert_publisher_page_exists()
 
 
-def validate_documentation_dir(root_dir: str,
+def validate_documentation_dir(validation_config: ValidationConfig,
+                               root_dir: str,
                                relative_docs_path: str = DOCS_PATH) -> None:
   """Validate Markdown files in `root_dir/relative_docs_path`.
 
   Args:
+    validation_config: TestConfig specifying whether the "asset-path" tag should
+      be validated.
     root_dir: Absolute path to the top-level dir that contains Markdown files
       and YAML config files.
     relative_docs_path: Relative path under `root_dir` containing the Markdown
@@ -687,27 +710,27 @@ def validate_documentation_dir(root_dir: str,
       for file_path in filesystem_utils.recursive_list_dir(documentation_dir)
   ]
   validate_documentation_files(
+      validation_config,
       root_dir,
       relative_paths,
-      relative_docs_path=relative_docs_path,
-      do_smoke_test=False)
+      relative_docs_path=relative_docs_path)
 
 
-def validate_documentation_files(root_dir: str,
+def validate_documentation_files(validation_config: ValidationConfig,
+                                 root_dir: str,
                                  files_to_validate: MutableSequence[str],
-                                 relative_docs_path: str = DOCS_PATH,
-                                 do_smoke_test=False) -> None:
+                                 relative_docs_path: str = DOCS_PATH) -> None:
   """Validate specified Markdown documentation files.
 
   Args:
+    validation_config: TestConfig specifying whether the "asset-path" tag should
+      be validated and the remote path be downloaded.
     root_dir: Absolute path to the top-level dir that contains Markdown files
       and YAML config files.
     files_to_validate: List of file paths in `root_dir` that should be
       validated.
     relative_docs_path: Relative path under `root_dir` containing the Markdown
       files. Defaults to "assets/docs".
-    do_smoke_test: Whether the referenced model assets should be downloaded and
-      verified as well. Defaults to False.
 
   Raises:
     MarkdownDocumentationError: if invalid Markdown files have been found.
@@ -723,11 +746,11 @@ def validate_documentation_files(root_dir: str,
     documentation_parser = DocumentationParser(root_dir, documentation_dir)
     try:
       absolute_path = os.path.join(documentation_dir, file_path)
-      documentation_parser.validate(absolute_path, do_smoke_test)
+      documentation_parser.validate(validation_config, absolute_path)
       validated += 1
     except MarkdownDocumentationError as e:
       file_to_error[file_path] = str(e)
-  if not do_smoke_test:
+  if not validation_config.do_smoke_test:
     logging.info(
         "No models were smoke tested. To download and smoke test a specific "
         "model, specify files directly in the command line, for example: "
@@ -743,9 +766,12 @@ def main(_):
   root_dir = FLAGS.root_dir or os.getcwd()
 
   if FLAGS.file:
-    validate_documentation_files(root_dir, FLAGS.file, do_smoke_test=True)
+    validate_documentation_files(
+        ValidationConfig(skip_asset_check=False, do_smoke_test=True), root_dir,
+        FLAGS.file)
   else:
-    validate_documentation_dir(root_dir)
+    validate_documentation_dir(
+        ValidationConfig(skip_asset_check=False, do_smoke_test=False), root_dir)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,165 @@
+values:
+  - id: 3dmovies
+    display_name: 3D Movies
+  - id: 1-billion-word-benchmark
+    display_name: 1 Billion Word Benchmark
+  - id: ade20k
+    display_name: ADE20K
+  - id: apolloscape
+    display_name: ApolloScape
+  - id: audioset
+    display_name: AudioSet
+  - id: bair
+    display_name: BAIR
+  - id: bair-robot-pushing-dataset
+    display_name: BAIR Robot Pushing Dataset
+  - id: bbc-xsum
+    display_name: BBC XSum Summarization
+  - id: birds-or-bicycles
+    display_name: birds-or-bicycles
+  - id: blendedmvs
+    display_name: BlendedMVS
+  - id: bookscorpus
+    display_name: BooksCorpus
+  - id: cifar-10
+    display_name: CIFAR-10
+  - id: cnn-dailymail-summarization
+    display_name: CNN/DailyMail Summarization
+  - id: coco-2017
+    display_name: COCO 2017
+  - id: cord-19
+    display_name: CORD-19
+  - id: celeba
+    display_name: CelebA
+  - id: celeba-hq
+    display_name: CelebA HQ
+  - id: charades
+    display_name: Charades
+  - id: chinese-treebank-6.0
+    display_name: Chinese Treebank 6.0
+  - id: cityscapes
+    display_name: Cityscapes
+  - id: clue-web
+    display_name: Clue Web
+  - id: commoncrawl
+    display_name: CommonCrawl
+  - id: dagm2007
+    display_name: DAGM2007
+  - id: dakshina
+    display_name: Dakshina
+  - id: diml-indoor
+    display_name: DIML Indoor
+  - id: discofuse
+    display_name: DiscoFuse
+  - id: div2k
+    display_name: DIV2K
+  - id: google-news
+    display_name: Google News
+  - id: gigaword-summarization
+    display_name: Gigaword summarization
+  - id: giga5
+    display_name: Giga5
+  - id: hrwsi
+    display_name: HRWSI
+  - id: imagenet
+    display_name: ImageNet
+  - id: imagenet-ilsvrc-2012-cls
+    display_name: ImageNet (ILSVRC-2012-CLS)
+  - id: imagenet-21k
+    display_name: ImageNet-21k
+  - id: imet-collection-2019
+    display_name: iMet Collection 2019
+  - id: inaturalist
+    display_name: iNaturalist
+  - id: inaturalist-inat-2017
+    display_name: iNaturalist (iNat) 2017
+  - id: inaturalist-and-plants-subset-of-imageNet-21k
+    display_name: iNaturalist and plants subset of ImageNet-21K
+  - id: internal-agripredict-dataset
+    display_name: Internal AgriPredict Dataset
+  - id: irs
+    display_name: IRS
+  - id: kth
+    display_name: KTH
+  - id: kinetics-400
+    display_name: Kinetics-400
+  - id: kinetics-600
+    display_name: Kinetics-600
+  - id: ljspeech
+    display_name: LJSpeech
+  - id: lsun-bedroom
+    display_name: LSUN Bedroom
+  - id: lol
+    display_name: LOL
+  - id: megadepth
+    display_name: MegaDepth
+  - id: mnli
+    display_name: MNLI
+  - id: multilingual-wikipedia
+    display_name: Multilingual Wikipedia
+  - id: multiple
+    display_name: Multiple
+  - id: natural-questions
+    display_name: Natural Questions
+  - id: nyu-depth-v2
+    display_name: NYU Depth v2
+  - id: noaa-pifsc-harp
+    display_name: NOAA PIFSC HARP
+  - id: openimagesv4
+    display_name: OpenImagesV4
+  - id: pascal-voc-2012
+    display_name: PASCAL VOC 2012
+  - id: plant-village
+    display_name: PlantVillage
+  - id: pmindia
+    display_name: PMINDIA
+  - id: medline/pubmed
+    display_name: MEDLINE/PubMed
+  - id: redweb
+    display_name: ReDWeb
+  - id: qnli
+    display_name: QNLI
+  - id: qqp
+    display_name: QQP
+  - id: silero-de
+    display_name: silero-de
+  - id: silero-en
+    display_name: silero-en
+  - id: silero-es
+    display_name: silero-es
+  - id: squad
+    display_name: SQuAD
+  - id: squad-2.0
+    display_name: SQuAD 2.0
+  - id: sst-2
+    display_name: SST-2
+  - id: stories
+    display_name: Stories
+  - id: svhn
+    display_name: SVHN
+  - id: thorsten
+    display_name: Thorsten
+  - id: tartanair
+    display_name: TartanAir
+  - id: translation
+    display_name: Translation
+  - id: twitter
+    display_name: Twitter
+  - id: wiki40b
+    display_name: Wiki40B
+  - id: wikipedia
+    display_name: Wikipedia
+  - id: wikipedia-and-bookscorpus
+    display_name: Wikipedia and BooksCorpus
+  - id: wikisplit-dataset
+    display_name: WikiSplit dataset
+  - id: wmt14
+    display_name: WMT14
+  - id: wmt16
+    display_name: WMT16
+  - id: wsvd
+    display_name: WSVD
+  - id: youtube-8m
+    display_name: YouTube-8M
+  - id: other
+    display_name: Other

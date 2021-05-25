@@ -5,7 +5,7 @@ This line gives a quick overview of what the placeholder contains.
 <!-- module-type: text-embedding -->
 <!-- network-architecture: skip-gram -->
 <!-- network-architecture: word2vec -->
-<!-- dataset: Wikipedia -->
+<!-- dataset: wikipedia -->
 <!-- language: en -->
 
 # Overview

@@ -43,7 +43,7 @@ import attr
 import tensorflow as tf
 import tensorflow_hub as hub
 import filesystem_utils
-import yaml_parser
+import yaml_parser as yaml_parser_lib
 
 # pylint: disable=g-direct-tensorflow-import
 from tensorflow.python.saved_model import loader_impl
@@ -110,8 +110,6 @@ TFLITE_SUFFIX = ".tflite"
 
 # Dict key that maps to the specified asset-path of the Markdown file.
 ASSET_PATH_KEY = "asset-path"
-# Dict key that maps to all specified languages from the Markdown file.
-LANGUAGE_KEY = "language"
 
 
 class MarkdownDocumentationError(Exception):
@@ -319,40 +317,44 @@ class ParsingPolicy(object):
               "The 'module-type' metadata has to start with any of 'image-'"
               ", 'text', 'audio-', 'video-', but is: '{value}'")
 
-  def assert_correct_languages(self, metadata: Mapping[str, AbstractSet[str]],
-                               root_dir: str) -> None:
-    """Check that all languages are defined in tags/language.yaml.
+  def assert_correct_tag_values(
+      self, metadata: Mapping[str, AbstractSet[str]],
+      yaml_parser: yaml_parser_lib.YamlParser) -> None:
+    """Checks that all tag values are defined in the respective YAML files.
 
     Args:
       metadata: Mapping of metadata fields to their values e.g.
-                {"language": {"en", "fr"}}
-      root_dir: Absolute path that contains the tags/ directory.
+                {"language": {"en", "fr"}}.
+      yaml_parser: YamlParser containing all supported tag values.
 
     Raises:
-      MarkdownDocumentationError: if the "language" key contains elements in its
-      set that are not present in tags/languages.yaml.
-      yaml.parser.ParserError: if tags/language.yaml is no valid YAML file.
-      FileNotFoundError: if tags/language.yaml does not exist.
+      MarkdownDocumentationError: if a tag key contains elements in its set that
+        are not defined in the respective YAML file.
+      yaml.parser.ParserError: if the YAML file containing all supported values
+        is no valid YAML file.
+      FileNotFoundError: if the YAML file containing all supported values does
+        not exist.
     """
-    if LANGUAGE_KEY not in metadata:
-      return
+    for tag_name, yaml_path in yaml_parser_lib.TAG_TO_YAML_MAP.items():
+      if tag_name not in metadata:
+        continue
 
-    language_parser = yaml_parser.YamlParser(root_dir)
-    supported_languages = language_parser.get_supported_languages()
-    unsupported_languages = metadata[LANGUAGE_KEY] - supported_languages
-    if unsupported_languages:
-      raise MarkdownDocumentationError(
-          f"Unsupported languages were found: {unsupported_languages}. "
-          f"Please add them to language.yaml.")
+      supported_values = yaml_parser.get_supported_values(tag_name)
+      unsupported_values = metadata[tag_name] - supported_values
+      if unsupported_values:
+        raise MarkdownDocumentationError(
+            f"Unsupported values for {tag_name} tag were found: "
+            f"{unsupported_values}. Please add them to "
+            f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
 
   def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
-                              root_dir: str) -> None:
+                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
     """Assert that correct metadata is present."""
     self.assert_metadata_contains_required_fields(metadata)
     self.assert_metadata_contains_supported_fields(metadata)
     self.assert_no_duplicate_metadata(metadata)
     self.assert_correct_module_types(metadata)
-    self.assert_correct_languages(metadata, root_dir)
+    self.assert_correct_tag_values(metadata, yaml_parser)
 
 
 class CollectionParsingPolicy(ParsingPolicy):
@@ -418,8 +420,8 @@ class SavedModelParsingPolicy(ParsingPolicy):
     return TARFILE_SUFFIX
 
   def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
-                              root_dir: str) -> None:
-    super().assert_correct_metadata(metadata, root_dir)
+                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
+    super().assert_correct_metadata(metadata, yaml_parser)
 
     format_value = list(metadata["format"])[0]
     if format_value not in SAVED_MODEL_FORMATS:
@@ -660,8 +662,8 @@ class DocumentationParser(object):
             "Please specify a license id from list of allowed ids: "
             f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
 
-  def validate(self, validation_config: ValidationConfig,
-               file_path: str) -> None:
+  def validate(self, validation_config: ValidationConfig, file_path: str,
+               yaml_parser: yaml_parser_lib.YamlParser) -> None:
     """Validate one documentation markdown file."""
     self._file_path = file_path
     raw_content = filesystem_utils.get_content(self._file_path)
@@ -676,7 +678,7 @@ class DocumentationParser(object):
       self.consume_description()
       # Populate _parsed_metadata with the metadata tag mapping
       self.consume_metadata()
-      self.policy.assert_correct_metadata(self._parsed_metadata, self._root_dir)
+      self.policy.assert_correct_metadata(self._parsed_metadata, yaml_parser)
       if not validation_config.skip_asset_check:
         self.policy.assert_correct_asset_path(validation_config,
                                               self._parsed_metadata,
@@ -736,6 +738,7 @@ def validate_documentation_files(validation_config: ValidationConfig,
     MarkdownDocumentationError: if invalid Markdown files have been found.
   """
   documentation_dir = os.path.join(root_dir, relative_docs_path)
+  yaml_parser = yaml_parser_lib.YamlParser(root_dir)
   logging.info("Going to validate files %s in documentation directory %s.",
                files_to_validate, documentation_dir)
   validated = 0
@@ -746,7 +749,8 @@ def validate_documentation_files(validation_config: ValidationConfig,
     documentation_parser = DocumentationParser(root_dir, documentation_dir)
     try:
       absolute_path = os.path.join(documentation_dir, file_path)
-      documentation_parser.validate(validation_config, absolute_path)
+      documentation_parser.validate(validation_config, absolute_path,
+                                    yaml_parser)
       validated += 1
     except MarkdownDocumentationError as e:
       file_to_error[file_path] = str(e)

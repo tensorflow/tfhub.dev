@@ -26,30 +26,59 @@ class YamlParserTest(tf.test.TestCase):
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
     self.tmp_dir = self.create_tempdir()
+    self.language_key = "language"
+    self.dataset_key = "dataset"
 
-  def test_get_supported_languages(self):
-    yaml_content = """
-    values:
-      - id: en
-        display_name: English"""
+  def _create_tag_files(self, dataset_content=None, language_content=None):
+    if dataset_content is None:
+      dataset_content = """
+      values:
+        - id: mnist
+          display_name: MNIST
+        - id: imagenet
+          display_name: ImageNet"""
+    if language_content is None:
+      language_content = """
+      values:
+        - id: en
+          display_name: English"""
     self.create_tempfile(
-        file_path=os.path.join(self.tmp_dir, yaml_parser.LANGUAGE_YAML),
-        content=yaml_content)
+        file_path=os.path.join(self.tmp_dir,
+                               yaml_parser.TAG_TO_YAML_MAP[self.language_key]),
+        content=language_content)
+    self.create_tempfile(
+        file_path=os.path.join(self.tmp_dir,
+                               yaml_parser.TAG_TO_YAML_MAP[self.dataset_key]),
+        content=dataset_content)
+
+  def test_get_supported_values(self):
+    self._create_tag_files()
     parser = yaml_parser.YamlParser(self.tmp_dir)
-    self.assertEqual(parser.get_supported_languages(), {"en"})
+
+    self.assertEqual(parser.get_supported_values(self.language_key), {"en"})
+    self.assertEqual(
+        parser.get_supported_values(self.dataset_key), {"mnist", "imagenet"})
 
   def test_invalid_yaml_file(self):
-    self.create_tempfile(
-        file_path=os.path.join(self.tmp_dir, yaml_parser.LANGUAGE_YAML),
-        content="foo\n:")
+    self._create_tag_files(dataset_content="foo\n:", language_content="foo\n:")
     parser = yaml_parser.YamlParser(self.tmp_dir)
+
     with self.assertRaises(yaml.parser.ParserError):
-      parser.get_supported_languages()
+      parser.get_supported_values(self.language_key)
 
   def test_non_existent_yaml_file(self):
     parser = yaml_parser.YamlParser(self.create_tempdir())
+
     with self.assertRaises(FileNotFoundError):
-      parser.get_supported_languages()
+      parser.get_supported_values(self.language_key)
+
+  def test_non_existent_yaml_tag(self):
+    self._create_tag_files()
+    parser = yaml_parser.YamlParser(self.tmp_dir)
+
+    with self.assertRaisesWithLiteralMatch(
+        ValueError, "No supported ids found for tag non-existent-tag."):
+      parser.get_supported_values("non-existent-tag")
 
 
 if __name__ == "__main__":

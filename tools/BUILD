@@ -124,6 +124,7 @@ pytype_strict_test(
     srcs_version = "PY3",
     deps = [
         ":validator_lib",
+        ":yaml_parser",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
     ],
 )

@@ -19,6 +19,7 @@ from unittest import mock
 
 import tensorflow as tf
 import validator
+import yaml_parser
 
 
 MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
@@ -57,6 +58,18 @@ multiple lines.
 <!-- unsupported_tag: value -->
 """
 
+MARKDOWN_SAVED_MODEL_UNSUPPORTED_DATASET = """# Module google/model/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model.tar.gz -->
+<!-- module-type:   text-embedding   -->
+<!-- fine-tunable:true -->
+<!-- format: saved_model_2 -->
+<!-- language: en -->
+<!-- dataset: non-existent -->
+"""
+
 MARKDOWN_SAVED_MODEL_UNSUPPORTED_LANGUAGE = """# Module google/model/1
 Simple description spanning
 multiple lines.
@@ -76,7 +89,7 @@ multiple lines.
 <!-- module-type:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
-<!-- dataset: MNIST -->
+<!-- dataset: mnist -->
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
 <!-- network-architecture: BERT -->
@@ -112,7 +125,7 @@ MAXIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-m
 Simple description spanning
 multiple lines.
 
-<!-- dataset: MNIST -->
+<!-- dataset: mnist -->
 <!-- fine-tunable:true -->
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
@@ -288,8 +301,8 @@ One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- module-type: text-classification -->
 <!-- module-type: text-embedding -->
-<!-- dataset: MNIST -->
-<!-- dataset: Wikipedia -->
+<!-- dataset: mnist -->
+<!-- dataset: wikipedia -->
 <!-- language: en -->
 <!-- language: fr -->
 <!-- network-architecture: Transformer -->
@@ -368,7 +381,7 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type: text-embedding -->
-<!-- dataset: MNIST -->
+<!-- dataset: mnist -->
 <!-- language: en -->
 <!-- network-architecture: BERT -->
 
@@ -399,6 +412,12 @@ class ValidatorTest(tf.test.TestCase):
     self.maximal_markdown = MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
     self.minimal_markdown_with_bad_model = (
         MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.not_a_model_path)
+    dataset_yaml = """values:
+                       - id: mnist
+                         display_name: MNIST
+                       - id: wikipedia
+                         display_name: Wikipedia"""
+    self.set_content("root/tags/dataset.yaml", dataset_yaml)
     language_yaml = "values:\n  - id: en\n    display_name: English"
     self.set_content("root/tags/language.yaml", language_yaml)
     self.asset_path_modified = mock.patch.object(
@@ -624,8 +643,10 @@ class ValidatorTest(tf.test.TestCase):
     self.set_up_publisher_page("google")
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir)
+    parser = yaml_parser.YamlParser(self.tmp_root_dir)
     documentation_parser.validate(
         validation_config=self.validation_config,
+        yaml_parser=parser,
         file_path=self.get_full_path(
             "root/assets/docs/google/models/text-embedding-model/1.md"))
     self.assertEqual("Simple description spanning multiple lines.",
@@ -750,6 +771,18 @@ class ValidatorTest(tf.test.TestCase):
             validation_config=self.validation_config,
             root_dir=self.tmp_root_dir)
 
+  def test_markdown_with_unsupported_dataset(self):
+    self.set_up_publisher_page("google")
+    self.set_content("root/assets/docs/google/models/model/1.md",
+                     MARKDOWN_SAVED_MODEL_UNSUPPORTED_DATASET)
+    with self.assertRaisesRegexp(
+        validator.MarkdownDocumentationError,
+        r".*Unsupported values for dataset tag were found: {'non-existent'}. "
+        r"Please add them to tags/dataset.yaml."):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config,
+          root_dir=self.tmp_root_dir)
+
   def test_markdown_with_unsupported_language(self):
     self.set_up_publisher_page("google")
     for markdown in [
@@ -760,8 +793,8 @@ class ValidatorTest(tf.test.TestCase):
       self.set_content("root/assets/docs/google/models/model/1.md", markdown)
       with self.assertRaisesRegexp(
           validator.MarkdownDocumentationError,
-          r".*Unsupported languages were found: {'non-existent'}. "
-          r"Please add them to .*"):
+          r".*Unsupported values for language tag were found: {'non-existent'}. "
+          r"Please add them to tags/language.yaml."):
         validator.validate_documentation_dir(
             validation_config=self.validation_config,
             root_dir=self.tmp_root_dir)
@@ -770,14 +803,17 @@ class ValidatorTest(tf.test.TestCase):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
+    parser = yaml_parser.YamlParser(self.tmp_root_dir)
     with open(os.path.join(self.model_path, ".invalid_file"), "w") as bad_file:
       bad_file.write("This file shouldn't be here")
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir)
+
     with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
                                  r"Invalid filepath.*\.invalid_file"):
       documentation_parser.validate(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
+          yaml_parser=parser,
           file_path=self.get_full_path(
               "root/assets/docs/google/models/text-embedding-model/1.md"))
 

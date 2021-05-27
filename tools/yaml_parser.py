@@ -23,7 +23,8 @@ import yaml
 # Maps a tag name to the YAML file path where supported values are configured.
 TAG_TO_YAML_MAP = collections.OrderedDict({
     "dataset": "tags/dataset.yaml",
-    "language": "tags/language.yaml"
+    "language": "tags/language.yaml",
+    "network-architecture": "tags/network_architecture.yaml"
 })
 
 # Field names in the used YAML config files.

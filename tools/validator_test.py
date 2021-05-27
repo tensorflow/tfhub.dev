@@ -70,6 +70,17 @@ multiple lines.
 <!-- dataset: non-existent -->
 """
 
+MARKDOWN_SAVED_MODEL_UNSUPPORTED_ARCHITECTURE = """# Module google/model/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model.tar.gz -->
+<!-- module-type:   text-embedding   -->
+<!-- fine-tunable:true -->
+<!-- format: saved_model_2 -->
+<!-- network-architecture: non-existent -->
+"""
+
 MARKDOWN_SAVED_MODEL_UNSUPPORTED_LANGUAGE = """# Module google/model/1
 Simple description spanning
 multiple lines.
@@ -92,7 +103,7 @@ multiple lines.
 <!-- dataset: mnist -->
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
-<!-- network-architecture: BERT -->
+<!-- network-architecture: bert -->
 <!-- license: Apache-2.0 -->
 
 ## Overview
@@ -130,7 +141,7 @@ multiple lines.
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
 <!-- module-type:   text-embedding   -->
-<!-- network-architecture: BERT -->
+<!-- network-architecture: bert -->
 <!-- license: Apache-2.0 -->
 """
 
@@ -305,8 +316,8 @@ One line description.
 <!-- dataset: wikipedia -->
 <!-- language: en -->
 <!-- language: fr -->
-<!-- network-architecture: Transformer -->
-<!-- network-architecture: EfficientNet -->
+<!-- network-architecture: transformer -->
+<!-- network-architecture: efficientnet -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
 
@@ -383,7 +394,7 @@ multiple lines.
 <!-- module-type: text-embedding -->
 <!-- dataset: mnist -->
 <!-- language: en -->
-<!-- network-architecture: BERT -->
+<!-- network-architecture: bert -->
 
 ## Overview
 """
@@ -418,6 +429,12 @@ class ValidatorTest(tf.test.TestCase):
                        - id: wikipedia
                          display_name: Wikipedia"""
     self.set_content("root/tags/dataset.yaml", dataset_yaml)
+    architecture_yaml = """values:
+                         - id: bert
+                           display_name: BERT
+                         - id: transformer
+                           display_name: Transformer"""
+    self.set_content("root/tags/network_architecture.yaml", architecture_yaml)
     language_yaml = "values:\n  - id: en\n    display_name: English"
     self.set_content("root/tags/language.yaml", language_yaml)
     self.asset_path_modified = mock.patch.object(
@@ -624,6 +641,12 @@ class ValidatorTest(tf.test.TestCase):
       - id: fr
         display_name: French"""
     self.set_content("root/tags/language.yaml", language_yaml)
+    architecture_yaml = """values:
+                         - id: efficientnet
+                           display_name: EfficientNet
+                         - id: transformer
+                           display_name: Transformer"""
+    self.set_content("root/tags/network_architecture.yaml", architecture_yaml)
     self.set_content("root/assets/docs/google/models/model/1.md",
                      MARKDOWN_WITH_ALLOWED_DUPLICATE_METADATA)
     validator.validate_documentation_dir(
@@ -779,6 +802,18 @@ class ValidatorTest(tf.test.TestCase):
         validator.MarkdownDocumentationError,
         r".*Unsupported values for dataset tag were found: {'non-existent'}. "
         r"Please add them to tags/dataset.yaml."):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config,
+          root_dir=self.tmp_root_dir)
+
+  def test_markdown_with_unsupported_architecture(self):
+    self.set_up_publisher_page("google")
+    self.set_content("root/assets/docs/google/models/model/1.md",
+                     MARKDOWN_SAVED_MODEL_UNSUPPORTED_ARCHITECTURE)
+    with self.assertRaisesRegexp(
+        validator.MarkdownDocumentationError,
+        r".*Unsupported values for network-architecture tag were found: "
+        "{'non-existent'}. Please add them to tags/network_architecture.yaml."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)

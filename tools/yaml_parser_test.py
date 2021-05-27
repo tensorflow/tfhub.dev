@@ -26,10 +26,21 @@ class YamlParserTest(tf.test.TestCase):
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
     self.tmp_dir = self.create_tempdir()
-    self.language_key = "language"
+    self.architecture_key = "network-architecture"
     self.dataset_key = "dataset"
+    self.language_key = "language"
 
-  def _create_tag_files(self, dataset_content=None, language_content=None):
+  def _create_tag_files(self,
+                        architecture_content=None,
+                        dataset_content=None,
+                        language_content=None):
+    if architecture_content is None:
+      architecture_content = """
+      values:
+        - id: bert
+          display_name: BERT
+        - id: transformer
+          display_name: Transformer"""
     if dataset_content is None:
       dataset_content = """
       values:
@@ -43,21 +54,28 @@ class YamlParserTest(tf.test.TestCase):
         - id: en
           display_name: English"""
     self.create_tempfile(
-        file_path=os.path.join(self.tmp_dir,
-                               yaml_parser.TAG_TO_YAML_MAP[self.language_key]),
-        content=language_content)
+        file_path=os.path.join(
+            self.tmp_dir, yaml_parser.TAG_TO_YAML_MAP[self.architecture_key]),
+        content=architecture_content)
     self.create_tempfile(
         file_path=os.path.join(self.tmp_dir,
                                yaml_parser.TAG_TO_YAML_MAP[self.dataset_key]),
         content=dataset_content)
+    self.create_tempfile(
+        file_path=os.path.join(self.tmp_dir,
+                               yaml_parser.TAG_TO_YAML_MAP[self.language_key]),
+        content=language_content)
 
   def test_get_supported_values(self):
     self._create_tag_files()
     parser = yaml_parser.YamlParser(self.tmp_dir)
 
-    self.assertEqual(parser.get_supported_values(self.language_key), {"en"})
+    self.assertEqual(
+        parser.get_supported_values(self.architecture_key),
+        {"bert", "transformer"})
     self.assertEqual(
         parser.get_supported_values(self.dataset_key), {"mnist", "imagenet"})
+    self.assertEqual(parser.get_supported_values(self.language_key), {"en"})
 
   def test_invalid_yaml_file(self):
     self._create_tag_files(dataset_content="foo\n:", language_content="foo\n:")

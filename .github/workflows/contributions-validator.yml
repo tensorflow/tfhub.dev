@@ -28,7 +28,7 @@ jobs:
           python-version: '3.6'
       - name: Install packages
         run: |
-          pip install absl-py tensorflow tensorflow_hub pyaml ruamel.yaml
+          pip install absl-py attrs tensorflow tensorflow_hub pyaml ruamel.yaml
           pip freeze all
       - name: Debug information
         run: |

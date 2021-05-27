@@ -1,0 +1,195 @@
+values:
+  - id: amoebanet-a-n18-f448
+    display_name: AmoebaNet-A (N=18, F=448)
+  - id: bert
+    display_name: BERT
+  - id: bigan
+    display_name: BiGAN
+  - id: bigbigan
+    display_name: BigBiGAN
+  - id: biggan
+    display_name: BigGAN
+  - id: biggan-deep
+    display_name: BigGAN-deep
+  - id: centernet
+    display_name: CenterNet
+  - id: cnn
+    display_name: CNN
+  - id: dan
+    display_name: DAN
+  - id: deeplab-mobilenetv2_ade20k_train
+    display_name: DeepLab (mobilenetv2_ade20k_train)
+  - id: deeplab-mobilenetv2_coco_voc_trainval
+    display_name: DeepLab (mobilenetv2_coco_voc_trainval)
+  - id: deeplab-mobilenetv2_dm05_coco_voc_trainval
+    display_name: DeepLab (mobilenetv2_dm05_coco_voc_trainval)
+  - id: deeplab-mobilenetv3_large_cityscapes_trainfine
+    display_name: DeepLab (mobilenetv3_large_cityscapes_trainfine)
+  - id: deeplab-xception65_ade20k_train
+    display_name: DeepLab (xception65_ade20k_train)
+  - id: deeplab-xception65_cityscapes_trainfine
+    display_name: DeepLab (xception65_cityscapes_trainfine)
+  - id: deeplab-xception65_coco_voc_trainaug
+    display_name: DeepLab (xception65_coco_voc_trainaug)
+  - id: delf
+    display_name: DELF
+  - id: efficientdet
+    display_name: EfficientDet
+  - id: efficientnet
+    display_name: EfficientNet
+  - id: efficientnet-b0
+    display_name: EfficientNet-B0
+  - id: efficientnet-b1
+    display_name: EfficientNet-B1
+  - id: efficientnet-b2
+    display_name: EfficientNet-B2
+  - id: efficientnet-b3
+    display_name: EfficientNet-B3
+  - id: efficientnet-b4
+    display_name: EfficientNet-B4
+  - id: efficientnet-b5
+    display_name: EfficientNet-B5
+  - id: efficientnet-b6
+    display_name: EfficientNet-B6
+  - id: efficientnet-b7
+    display_name: EfficientNet-B7
+  - id: elmo
+    display_name: ELMo
+  - id: fastdepth
+    display_name: FastDepth
+  - id: faster-r-cnn
+    display_name: Faster R-CNN
+  - id: gan
+    display_name: GAN
+  - id: i3d
+    display_name: I3D
+  - id: inception-resnet-v2
+    display_name: Inception ResNet V2
+  - id: inception-v1
+    display_name: Inception V1
+  - id: inception-v2
+    display_name: Inception V2
+  - id: inception-v3
+    display_name: Inception V3
+  - id: inception-v4
+    display_name: Inception V4
+  - id: keywordspottingnet
+    display_name: KeyWordSpottingNet
+  - id: mask-r-cnn
+    display_name: Mask R-CNN
+  - id: midas
+    display_name: MiDaS
+  - id: mobilebert-uncased_l-24_h-128_b-512_a-4_f-4_opt
+    display_name: MobileBert uncased_L-24_H-128_B-512_A-4_F-4_OPT
+  - id: mobilenet
+    display_name: MobileNet
+  - id: mobilenet-v1
+    display_name: MobileNet V1
+  - id: mobilenet-v2
+    display_name: MobileNet V2
+  - id: mobilenet-v3
+    display_name: MobileNet V3
+  - id: movinet
+    display_name: MoViNet
+  - id: multiband-melgan
+    display_name: Multi-band MelGAN
+  - id: multiple
+    display_name: Multiple
+  - id: nasnet-a-large
+    display_name: NASNet-A (large)
+  - id: nasnet-a-mobile
+    display_name: NASNet-A (mobile)
+  - id: nnlm
+    display_name: NNLM
+  - id: other
+    display_name: Other
+  - id: pnasnet-5-large
+    display_name: PNASNet-5 (large)
+  - id: progressive-gan
+    display_name: Progressive GAN
+  - id: reqa
+    display_name: ReQA
+  - id: resnet
+    display_name: ResNet
+  - id: resnet-152
+    display_name: ResNet-152
+  - id: resnet-cifar
+    display_name: ResNet CIFAR
+  - id: resnet-v1-101
+    display_name: ResNet V1 101
+  - id: resnet-v1-152
+    display_name: ResNet V1 152
+  - id: resnet-v1-200
+    display_name: ResNet V1 200
+  - id: resnet-v1-50
+    display_name: ResNet V1 50
+  - id: resnet-v2-101
+    display_name: ResNet V2 101
+  - id: resnet-v2-152
+    display_name: ResNet V2 152
+  - id: resnet-v2-50
+    display_name: ResNet V2 50
+  - id: resnet101-v2
+    display_name: ResNet101-v2
+  - id: resnet101x3-v2
+    display_name: ResNet101x3-v2
+  - id: resnet152x4-v2
+    display_name: ResNet152x4-v2
+  - id: resnet19
+    display_name: ResNet19
+  - id: resnet50-v2
+    display_name: ResNet50-v2
+  - id: resnet50x3-v2
+    display_name: ResNet50x3-v2
+  - id: retinanet
+    display_name: RetinaNet
+  - id: rnn
+    display_name: RNN
+  - id: s3d
+    display_name: S3D
+  - id: s3d-g
+    display_name: S3D-G
+  - id: silero-stt
+    display_name: silero-stt
+  - id: ssd
+    display_name: SSD
+  - id: ssd-mobilenet-v1
+    display_name: SSD Mobilenet V1
+  - id: ssd-mobilenet-v2
+    display_name: SSD Mobilenet V2
+  - id: swivel
+    display_name: Swivel
+  - id: tacotron2
+    display_name: Tacotron 2
+  - id: transformer
+    display_name: Transformer
+  - id: transformer-xl
+    display_name: Transformer XL
+  - id: tsm-resnet50
+    display_name: TSM ResNet50
+  - id: tsm-resnet50x2
+    display_name: TSM ResNet50x2
+  - id: tvn-1
+    display_name: TVN-1
+  - id: tvn-2
+    display_name: TVN-2
+  - id: tvn-3
+    display_name: TVN-3
+  - id: tvn-mobile-1
+    display_name: TVN-Mobile-1
+  - id: unet
+    display_name: Unet
+  - id: vae
+    display_name: VAE
+  - id: vgg-style
+    display_name: VGG-style
+  - id: videoflow
+    display_name: VideoFlow
+  - id: wae
+    display_name: WAE
+  - id: wide-resnet-40-8
+    display_name: Wide-ResNet-40-8
+  - id: word2vec-skip-gram
+    display_name: word2vec skip-gram
+  - id: wrn-106
+    display_name: WRN-106

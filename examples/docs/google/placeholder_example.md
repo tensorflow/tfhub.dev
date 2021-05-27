@@ -3,8 +3,7 @@
 This line gives a quick overview of what the placeholder contains.
 
 <!-- module-type: text-embedding -->
-<!-- network-architecture: skip-gram -->
-<!-- network-architecture: word2vec -->
+<!-- network-architecture: word2vec-skip-gram -->
 <!-- dataset: wikipedia -->
 <!-- language: en -->
 

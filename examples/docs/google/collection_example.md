@@ -2,8 +2,8 @@
 Test collection.
 
 <!-- module-type: text-embedding -->
-<!-- network-architecture: DAN -->
-<!-- network-architecture: Transformer -->
+<!-- network-architecture: dan -->
+<!-- network-architecture: transformer -->
 <!-- language: en -->
 
 ## Overview

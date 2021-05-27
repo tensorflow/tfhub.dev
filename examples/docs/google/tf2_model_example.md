@@ -3,8 +3,7 @@ Token based text embedding trained on English Wikipedia corpus[1].
 
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- module-type: text-embedding -->
-<!-- network-architecture: skip-gram -->
-<!-- network-architecture: word2vec -->
+<!-- network-architecture: word2vec-skip-gram -->
 <!-- dataset: wikipedia -->
 <!-- language: en -->
 <!-- fine-tunable: true -->

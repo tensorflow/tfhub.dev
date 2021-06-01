@@ -1,0 +1,149 @@
+values:
+  - id: audio-command-detection
+    display_name: Audio command detection
+    domains:
+      - audio
+  - id: audio-embedding
+    display_name: Audio embedding
+    domains:
+      - audio
+  - id: audio-event-classification
+    display_name: Audio event classification
+    domains:
+      - audio
+  - id: audio-pitch-extraction
+    display_name: Audio pitch extraction
+    domains:
+      - audio
+  - id: audio-speech-synthesis
+    display_name: Audio speech synthesis
+    domains:
+      - audio
+  - id: audio-synthesis
+    display_name: Audio synthesis
+    domains:
+      - audio
+  - id: audio-stt
+    display_name: Audio STT
+    domains:
+      - audio
+  - id: image-augmentation
+    display_name: Image augmentation
+    domains:
+      - image
+  - id: image-classification
+    display_name: Image classification
+    domains:
+      - image
+  - id: image-classification-logits
+    display_name: Image classification logits
+    domains:
+      - image
+  - id: image-classifier
+    display_name: Image classifier
+    domains:
+      - image
+  - id: image-depth-estimation
+    display_name: Image depth estimation
+    domains:
+      - image
+  - id: image-extrapolation
+    display_name: Image extrapolation
+    domains:
+      - image
+  - id: image-feature-vector
+    display_name: Image feature vector
+    domains:
+      - image
+  - id: image-generator
+    display_name: Image generator
+    domains:
+      - image
+  - id: image-object-detection
+    display_name: Image object detection
+    domains:
+      - image
+  - id: image-others
+    display_name: Image others
+    domains:
+      - image
+  - id: image-pose-detection
+    display_name: Image pose detection
+    domains:
+      - image
+  - id: image-rnn-agent
+    display_name: Image RNN agent
+    domains:
+      - image
+  - id: image-segmentation
+    display_name: Image segmentation
+    domains:
+      - image
+  - id: image-style-transfer
+    display_name: Image style transfer
+    domains:
+      - image
+  - id: image-super-resolution
+    display_name: Image super resolution
+    domains:
+      - image
+  - id: image-text-recognition
+    display_name: Image text recognition
+    domains:
+      - image
+      - text
+  - id: text-classification
+    display_name: Text classification
+    domains:
+      - text
+  - id: text-embedding
+    display_name: Text embedding
+    domains:
+      - text
+  - id: text-generation
+    display_name: Text generation
+    domains:
+      - text
+  - id: text-language-model
+    display_name: Text language model
+    domains:
+      - text
+  - id: text-preprocessing
+    display_name: Text preprocessing
+    domains:
+      - text
+  - id: text-question-answering
+    display_name: Text question answering
+    domains:
+      - text
+  - id: text-retrieval-question-answering
+    display_name: Text retrieval question answering
+    domains:
+      - text
+  - id: text-segmentation
+    display_name: Text segmentation
+    domains:
+      - text
+  - id: text-to-mel
+    display_name: Text to MEL
+    domains:
+      - text
+  - id: video-audio-text
+    display_name: Video audio text
+    domains:
+      - video
+      - audio
+      - text
+  - id: video-classification
+    display_name: Video classification
+    domains:
+      - video
+  - id: video-generation
+    display_name: Video generation
+    domains:
+      - video
+  - id: video-text
+    display_name: Video text
+    domains:
+      - video
+      - text

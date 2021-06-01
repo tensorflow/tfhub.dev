@@ -16,6 +16,7 @@
 
 import os
 
+from absl.testing import parameterized
 import tensorflow as tf
 import tags_validator
 
@@ -59,7 +60,7 @@ values:
     display_name: Norwegian data"""
 
 
-class ValidatorTest(tf.test.TestCase):
+class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
@@ -67,7 +68,7 @@ class ValidatorTest(tf.test.TestCase):
 
   def assert_validation_returns_correct_dict(self, expected_dict):
     """Validating self.tmp_dir should return `expected_dict`."""
-    files_to_errors = tags_validator.validate_tag_dir(self.tmp_dir)
+    files_to_errors = tags_validator.validate_tag_dir(self.tmp_dir.full_path)
     for v in files_to_errors.values():
       self.assertIsInstance(v, tags_validator.TagDefinitionError)
     self.assertEqual(expected_dict,
@@ -82,9 +83,31 @@ class ValidatorTest(tf.test.TestCase):
     with tf.io.gfile.GFile(full_path, "w") as output_file:
       output_file.write(content)
 
+  @parameterized.parameters(
+      ("dataset.yaml", ("id", "display_name")),
+      ("language.yaml", ("id", "display_name")),
+      ("network_architecture.yaml", ("id", "display_name")),
+      ("task.yaml", ("id", "display_name", "domains")))
+  def test_get_required_tem_level_keys(self, file_name, expected_keys):
+    self.assertCountEqual(
+        tags_validator.get_required_item_level_keys(file_name), expected_keys)
+
+  @parameterized.parameters(
+      ("dataset.yaml",
+       ("id", "display_name", "url", "description", "aggregation_rule")),
+      ("language.yaml",
+       ("id", "display_name", "url", "description", "aggregation_rule")),
+      ("network_architecture.yaml",
+       ("id", "display_name", "url", "description", "aggregation_rule")),
+      ("task.yaml", ("id", "display_name", "url", "description",
+                     "aggregation_rule", "domains")))
+  def test_get_supported_item_level_keys(self, file_name, expected_keys):
+    self.assertCountEqual(
+        tags_validator.get_supported_item_level_keys(file_name), expected_keys)
+
   def test_parse_good_files(self):
     self.set_content("tags/tag.yml", MINIMAL_TAGS_FILE)
-    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir))
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
 
   def test_fail_on_invalid_yaml(self):
     self.set_content("tags/1.md", INVALID_FILE)

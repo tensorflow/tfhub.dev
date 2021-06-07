@@ -16,8 +16,10 @@
 
 import collections
 import os
-from typing import AbstractSet
+import re
+from typing import AbstractSet, Any, Mapping, TypeVar, Sequence, Type
 
+import attr
 import yaml
 
 # Maps a tag name to the YAML file path where supported values are configured.
@@ -29,10 +31,77 @@ TAG_TO_YAML_MAP = collections.OrderedDict({
 
 # Field names in the used YAML config files.
 ID_KEY = "id"
+DISPLAY_NAME = "display_name"
 VALUES_KEY = "values"
 
+TagValuesValidatorT = TypeVar("TagValuesValidatorT", bound="TagValuesValidator")
 
-class YamlParser(object):
+
+@attr.s(auto_attribs=True)
+class TagValue:
+  """Representation of a single tag value.
+
+  Attributes:
+    id: String representing the unique identifier of an item e.g. 'en'.
+    display_name: Human-readable representation e.g. 'English'.
+  """
+  id: str
+  display_name: str
+
+
+@attr.s(auto_attribs=True)
+class TagValuesValidator:
+  """Loads all tag values and validates them.
+
+  Attributes:
+    values: Sequence containing the possible TagValues a tag can be set to.
+  """
+  values: Sequence[TagValue]
+
+  @classmethod
+  def from_yaml(cls: Type[TagValuesValidatorT],
+                yaml_config: Mapping[str, Any]) -> TagValuesValidatorT:
+    """Builds a TagValuesValidator instance from a loaded YAML config.
+
+    Args:
+      yaml_config: A config loaded from a YAML file.
+
+    Returns:
+      A TagValuesValidator instance loaded from the YAML config.
+
+    Raises:
+      ValueError:
+        - if yaml_config does not contain a `values` field.
+        - if a tag item within yaml_config does not contain an `id` field or
+          a `display_name` field.
+    """
+
+    if VALUES_KEY not in yaml_config:
+      raise ValueError(f"YAML config should contain `{VALUES_KEY}` key "
+                       f"but was {yaml_config}.")
+
+    values = list()
+    for item in yaml_config[VALUES_KEY]:
+      if ID_KEY not in item or DISPLAY_NAME not in item:
+        raise ValueError(f"A tag item must contain both an `{ID_KEY}` field "
+                         f"and a `{DISPLAY_NAME}` field but was {item}.")
+      values.append(TagValue(id=item[ID_KEY], display_name=item[DISPLAY_NAME]))
+    return cls(values)
+
+  def validate(self) -> None:
+    """Ensures that the given config only contains valid values.
+
+    Raises:
+      ValueError: if the `id` field of an item is invalid.
+    """
+    id_pattern = r"[a-z-\d]+"
+    for item in self.values:
+      if re.fullmatch(id_pattern, item.id) is None:
+        raise ValueError(f"The value of an id must match {id_pattern} but was "
+                         f"{item.id}.")
+
+
+class YamlParser:
   """Loads supported tags from the YAML config files.
 
      Attributes:
@@ -47,19 +116,22 @@ class YamlParser(object):
     self._root_dir = root_dir
     self._supported_values_map = None
 
-  def load_supported_values(self) -> None:
+  def _load_supported_values(self) -> None:
     """Loads the supported values for each tag from the respective YAML file.
 
     Raises:
-      yaml.parser.ParserError: if a YAML file is no valid YAML file.
       FileNotFoundError: if a YAML file does not exist.
+      yaml.parser.ParserError: if a YAML file is no valid YAML file.
+      ValueError: if a YAML file contains unsupported values.
     """
     supported_values_map = collections.OrderedDict()
     for tag_name, yaml_path in TAG_TO_YAML_MAP.items():
       with open(os.path.join(self._root_dir, yaml_path)) as yaml_file:
         yaml_config = yaml.safe_load(yaml_file.read())
+      tag_validator = TagValuesValidator.from_yaml(yaml_config)
+      tag_validator.validate()
       supported_values_map[tag_name] = {
-          item[ID_KEY] for item in yaml_config[VALUES_KEY]
+          item.id for item in tag_validator.values
       }
     self._supported_values_map = supported_values_map
 
@@ -77,7 +149,7 @@ class YamlParser(object):
         file.
     """
     if self._supported_values_map is None:
-      self.load_supported_values()
+      self._load_supported_values()
 
     if tag_name not in self._supported_values_map:
       raise ValueError(f"No supported ids found for tag {tag_name}.")

@@ -101,7 +101,10 @@ pytype_strict_library(
     name = "yaml_parser",
     srcs = ["yaml_parser.py"],
     srcs_version = "PY3",
-    deps = ["//third_party/py/yaml"],
+    deps = [
+        "//third_party/py/attr",
+        "//third_party/py/yaml",
+    ],
 )
 
 pytype_strict_test(
@@ -111,6 +114,7 @@ pytype_strict_test(
     srcs_version = "PY3",
     deps = [
         ":yaml_parser",
+        "@io_abseil_py//absl/testing:parameterized",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
         "//third_party/py/yaml",
     ],

@@ -19,17 +19,31 @@ values:
     display_name: DAN
   - id: deeplab-mobilenetv2_ade20k_train
     display_name: DeepLab (mobilenetv2_ade20k_train)
+  - id: deeplab-mobilenetv2-ade20k-train
+    display_name: DeepLab (mobilenetv2_ade20k_train)
   - id: deeplab-mobilenetv2_coco_voc_trainval
+    display_name: DeepLab (mobilenetv2_coco_voc_trainval)
+  - id: deeplab-mobilenetv2-coco-voc-trainval
     display_name: DeepLab (mobilenetv2_coco_voc_trainval)
   - id: deeplab-mobilenetv2_dm05_coco_voc_trainval
     display_name: DeepLab (mobilenetv2_dm05_coco_voc_trainval)
+  - id: deeplab-mobilenetv2-dm05-coco-voc-trainval
+    display_name: DeepLab (mobilenetv2_dm05_coco_voc_trainval)
   - id: deeplab-mobilenetv3_large_cityscapes_trainfine
+    display_name: DeepLab (mobilenetv3_large_cityscapes_trainfine)
+  - id: deeplab-mobilenetv3-large-cityscapes-trainfine
     display_name: DeepLab (mobilenetv3_large_cityscapes_trainfine)
   - id: deeplab-xception65_ade20k_train
     display_name: DeepLab (xception65_ade20k_train)
+  - id: deeplab-xception65-ade20k-train
+    display_name: DeepLab (xception65_ade20k_train)
   - id: deeplab-xception65_cityscapes_trainfine
     display_name: DeepLab (xception65_cityscapes_trainfine)
+  - id: deeplab-xception65-cityscapes-trainfine
+    display_name: DeepLab (xception65_cityscapes_trainfine)
   - id: deeplab-xception65_coco_voc_trainaug
+    display_name: DeepLab (xception65_coco_voc_trainaug)
+  - id: deeplab-xception65-coco-voc-trainaug
     display_name: DeepLab (xception65_coco_voc_trainaug)
   - id: delf
     display_name: DELF
@@ -80,6 +94,8 @@ values:
   - id: midas
     display_name: MiDaS
   - id: mobilebert-uncased_l-24_h-128_b-512_a-4_f-4_opt
+    display_name: MobileBert uncased_L-24_H-128_B-512_A-4_F-4_OPT
+  - id: mobilebert-uncased-l-24-h-128-b-512-a-4-f-4-opt
     display_name: MobileBert uncased_L-24_H-128_B-512_A-4_F-4_OPT
   - id: mobilenet
     display_name: MobileNet

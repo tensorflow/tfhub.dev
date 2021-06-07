@@ -37,6 +37,8 @@ values:
     display_name: Charades
   - id: chinese-treebank-6.0
     display_name: Chinese Treebank 6.0
+  - id: chinese-treebank-6-0
+    display_name: Chinese Treebank 6.0
   - id: cityscapes
     display_name: Cityscapes
   - id: clue-web
@@ -74,6 +76,8 @@ values:
   - id: inaturalist-inat-2017
     display_name: iNaturalist (iNat) 2017
   - id: inaturalist-and-plants-subset-of-imageNet-21k
+    display_name: iNaturalist and plants subset of ImageNet-21K
+  - id: inaturalist-and-plants-subset-of-imagenet-21k
     display_name: iNaturalist and plants subset of ImageNet-21K
   - id: internal-agripredict-dataset
     display_name: Internal AgriPredict Dataset
@@ -115,6 +119,8 @@ values:
     display_name: PMINDIA
   - id: medline/pubmed
     display_name: MEDLINE/PubMed
+  - id: medline-pubmed
+    display_name: MEDLINE/PubMed
   - id: redweb
     display_name: ReDWeb
   - id: qnli
@@ -130,6 +136,8 @@ values:
   - id: squad
     display_name: SQuAD
   - id: squad-2.0
+    display_name: SQuAD 2.0
+  - id: squad-2-0
     display_name: SQuAD 2.0
   - id: sst-2
     display_name: SST-2

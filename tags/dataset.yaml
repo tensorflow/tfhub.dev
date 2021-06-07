@@ -35,8 +35,6 @@ values:
     display_name: CelebA HQ
   - id: charades
     display_name: Charades
-  - id: chinese-treebank-6.0
-    display_name: Chinese Treebank 6.0
   - id: chinese-treebank-6-0
     display_name: Chinese Treebank 6.0
   - id: cityscapes
@@ -75,8 +73,6 @@ values:
     display_name: iNaturalist
   - id: inaturalist-inat-2017
     display_name: iNaturalist (iNat) 2017
-  - id: inaturalist-and-plants-subset-of-imageNet-21k
-    display_name: iNaturalist and plants subset of ImageNet-21K
   - id: inaturalist-and-plants-subset-of-imagenet-21k
     display_name: iNaturalist and plants subset of ImageNet-21K
   - id: internal-agripredict-dataset
@@ -117,8 +113,6 @@ values:
     display_name: PlantVillage
   - id: pmindia
     display_name: PMINDIA
-  - id: medline/pubmed
-    display_name: MEDLINE/PubMed
   - id: medline-pubmed
     display_name: MEDLINE/PubMed
   - id: redweb
@@ -135,8 +129,6 @@ values:
     display_name: silero-es
   - id: squad
     display_name: SQuAD
-  - id: squad-2.0
-    display_name: SQuAD 2.0
   - id: squad-2-0
     display_name: SQuAD 2.0
   - id: sst-2

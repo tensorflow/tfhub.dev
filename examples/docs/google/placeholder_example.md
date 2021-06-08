@@ -3,6 +3,7 @@
 This line gives a quick overview of what the placeholder contains.
 
 <!-- module-type: text-embedding -->
+<!-- task: text-embedding -->
 <!-- network-architecture: word2vec-skip-gram -->
 <!-- dataset: wikipedia -->
 <!-- language: en -->

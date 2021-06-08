@@ -90,7 +90,7 @@ COLLECTION_HANDLE_PATTERN = (
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 
 # These metadata tags can be set to more than one value.
-REPEATED_TAG_KEYS = ("dataset", "language", "module-type",
+REPEATED_TAG_KEYS = ("dataset", "language", "module-type", "task",
                      "network-architecture")
 
 # Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
@@ -290,6 +290,19 @@ class ParsingPolicy:
             f"{sorted(unsupported_values)}. Please add them to "
             f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
 
+  def _assert_task_equals_module_type(
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
+    """Asserts that if a task tag is given, it equals the module-type tag."""
+    if "task" not in metadata:
+      return
+
+    actual_value = sorted(metadata["task"])
+    expected_value = sorted(metadata.get("module-type", {}))
+    if actual_value != expected_value:
+      raise MarkdownDocumentationError(
+          f"Expected 'task' tag to be {expected_value!r} but was "
+          f"{actual_value!r}.")
+
   def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
                               yaml_parser: yaml_parser_lib.YamlParser) -> None:
     """Asserts that correct metadata is present."""
@@ -298,6 +311,7 @@ class ParsingPolicy:
     self._assert_no_duplicate_metadata(metadata)
     self._assert_correct_module_types(metadata)
     self._assert_correct_tag_values(metadata, yaml_parser)
+    self._assert_task_equals_module_type(metadata)
 
   def assert_correct_asset_path(self, validation_config: ValidationConfig,
                                 metadata: Mapping[str, AbstractSet[str]],
@@ -367,7 +381,9 @@ class CollectionParsingPolicy(ParsingPolicy):
         model_name,
         model_version,
         required_metadata=["module-type"],
-        optional_metadata=["dataset", "language", "network-architecture"])
+        optional_metadata=[
+            "dataset", "language", "network-architecture", "task"
+        ])
 
   @property
   def type_name(self) -> str:
@@ -386,7 +402,7 @@ class PlaceholderParsingPolicy(ParsingPolicy):
         required_metadata=["module-type"],
         optional_metadata=[
             "dataset", "fine-tunable", "interactive-model-name", "language",
-            "license", "network-architecture"
+            "license", "network-architecture", "task"
         ])
 
   @property
@@ -408,7 +424,7 @@ class SavedModelParsingPolicy(ParsingPolicy):
         ],
         optional_metadata=[
             "dataset", "interactive-model-name", "language", "license",
-            "network-architecture"
+            "network-architecture", "task"
         ])
 
   @property

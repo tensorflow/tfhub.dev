@@ -26,6 +26,7 @@ import yaml
 TAG_TO_YAML_MAP = collections.OrderedDict({
     "dataset": "tags/dataset.yaml",
     "language": "tags/language.yaml",
+    "module-type": "tags/task.yaml",
     "network-architecture": "tags/network_architecture.yaml"
 })
 

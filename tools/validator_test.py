@@ -44,10 +44,22 @@ values:
   - id: fr
     display_name: French"""
 
+TASK_YAML = """
+values:
+  - id: text-embedding
+    display_name: Text embedding
+    domains:
+      - text
+  - id: text-classification
+    display_name: Text classification
+    domains:
+      - text"""
+
 TAG_FILE_NAME_TO_CONTENT_MAP = {
     "network_architecture.yaml": ARCHITECTURE_YAML,
     "dataset.yaml": DATASET_YAML,
-    "language.yaml": LANGUAGE_YAML
+    "language.yaml": LANGUAGE_YAML,
+    "task.yaml": TASK_YAML
 }
 
 LEGACY_VALUE = "legacy"
@@ -121,6 +133,7 @@ multiple lines.
 
 <!-- asset-path: %s -->
 <!-- module-type:   text-embedding   -->
+<!-- task:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
 <!-- dataset: mnist -->
@@ -156,6 +169,7 @@ multiple lines.
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
 <!-- module-type:   text-embedding   -->
+<!-- task:   text-embedding   -->
 <!-- network-architecture: bert -->
 <!-- license: Apache-2.0 -->
 """
@@ -195,6 +209,7 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type: text-embedding -->
+<!-- task: text-embedding -->
 <!-- dataset: mnist -->
 <!-- language: en -->
 <!-- network-architecture: bert -->
@@ -741,6 +756,22 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
+                            PLACEHOLDER_OPTIONAL_TAG_TEMPLATE,
+                            COLLECTION_OPTIONAL_TAG_TEMPLATE)
+  def test_markdown_with_invalid_task_tag(self, template):
+    self.set_up_publisher_page("google")
+    self.set_content(
+        "root/assets/docs/google/models/model/1.md",
+        template.format(tag_key="task", tag_value="text-classification"))
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        r".*Expected 'task' tag to be \['text-embedding'\] "
+        r"but was \['text-classification'\]."):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_model_with_invalid_filenames_fails_smoke_test(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",

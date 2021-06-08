@@ -44,6 +44,17 @@ values:
   - id: fr
     display_name: French"""
 
+DEFAULT_TASK_CONTENT = """
+values:
+  - id: text-embedding
+    display_name: Text embedding
+    domains:
+      - text
+  - id: image-transfer
+    display_name: Image transfer
+    domains:
+      - image"""
+
 SIMPLE_DATASET_CONTENT = """
 values:
   - id: mnist
@@ -59,6 +70,13 @@ values:
   - id: en
     display_name: English"""
 
+SIMPLE_TASK_CONTENT = """
+values:
+  - id: text-embedding
+    display_name: Text embedding
+    domains:
+      - text"""
+
 
 class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
 
@@ -68,14 +86,17 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
     self.architecture_key = "network-architecture"
     self.dataset_key = "dataset"
     self.language_key = "language"
+    self.task_key = "module-type"
 
   def _create_tag_files(self,
                         architecture_content=DEFAULT_ARCHITECTURE_CONTENT,
                         dataset_content=DEFAULT_DATASET_CONTENT,
-                        language_content=DEFAULT_LANGUAGE_CONTENT):
-    for tag_key, content in zip(
-        [self.architecture_key, self.dataset_key, self.language_key],
-        [architecture_content, dataset_content, language_content]):
+                        language_content=DEFAULT_LANGUAGE_CONTENT,
+                        task_content=DEFAULT_TASK_CONTENT):
+    for tag_key, content in zip([
+        self.architecture_key, self.dataset_key, self.language_key,
+        self.task_key
+    ], [architecture_content, dataset_content, language_content, task_content]):
       self.create_tempfile(
           os.path.join(self.tmp_dir, yaml_parser.TAG_TO_YAML_MAP[tag_key]),
           content)
@@ -168,6 +189,9 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
       ("network-architecture", {
           "architecture_content": SIMPLE_ARCHITECTURE_CONTENT
       }, {"bert"}),
+      ("module-type", {
+          "task_content": SIMPLE_TASK_CONTENT
+      }, {"text-embedding"}),
       ("language", {"language_content": SIMPLE_LANGUAGE_CONTENT}, {"en"}))
   def test_get_supported_values(self, tag_key, content_params, expected_values):
     self._create_tag_files(**content_params)

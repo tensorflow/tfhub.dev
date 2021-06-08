@@ -87,6 +87,11 @@ values:
     display_name: Image super resolution
     domains:
       - image
+  - id: image-text-detection
+    display_name: Image text detection
+    domains:
+      - image
+      - text
   - id: image-text-recognition
     display_name: Image text recognition
     domains:

@@ -40,6 +40,23 @@ values:
 DEFAULT_LANGUAGE_CONTENT = """
 values:
   - id: en
+    display_name: English
+  - id: fr
+    display_name: French"""
+
+SIMPLE_DATASET_CONTENT = """
+values:
+  - id: mnist
+    display_name: MNIST"""
+
+SIMPLE_ARCHITECTURE_CONTENT = """
+values:
+  - id: bert
+    display_name: BERT"""
+
+SIMPLE_LANGUAGE_CONTENT = """
+values:
+  - id: en
     display_name: English"""
 
 
@@ -62,17 +79,6 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
       self.create_tempfile(
           os.path.join(self.tmp_dir, yaml_parser.TAG_TO_YAML_MAP[tag_key]),
           content)
-
-  def test_get_supported_values(self):
-    self._create_tag_files()
-    parser = yaml_parser.YamlParser(self.tmp_dir)
-
-    self.assertEqual(
-        parser.get_supported_values(self.architecture_key),
-        {"bert", "transformer"})
-    self.assertEqual(
-        parser.get_supported_values(self.dataset_key), {"mnist", "imagenet"})
-    self.assertEqual(parser.get_supported_values(self.language_key), {"en"})
 
   def test_invalid_yaml_file(self):
     self._create_tag_files(dataset_content="foo\n:", language_content="foo\n:")
@@ -156,6 +162,19 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
         ValueError,
         fr"The value of an id must match [a-z-\d]+ but was {id_value}."):
       tag_values_validator.validate()
+
+  @parameterized.parameters(
+      ("dataset", {"dataset_content": SIMPLE_DATASET_CONTENT}, {"mnist"}),
+      ("network-architecture", {
+          "architecture_content": SIMPLE_ARCHITECTURE_CONTENT
+      }, {"bert"}),
+      ("language", {"language_content": SIMPLE_LANGUAGE_CONTENT}, {"en"}))
+  def test_get_supported_values(self, tag_key, content_params, expected_values):
+    self._create_tag_files(**content_params)
+
+    parser = yaml_parser.YamlParser(self.tmp_dir)
+
+    self.assertEqual(parser.get_supported_values(tag_key), expected_values)
 
 
 if __name__ == "__main__":

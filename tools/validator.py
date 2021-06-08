@@ -146,7 +146,7 @@ def _is_asset_path_modified(file_path: str) -> bool:
 
 
 @attr.s(auto_attribs=True)
-class ValidationConfig(object):
+class ValidationConfig:
   """A simple value class containing information for the validation process.
 
   Attributes:
@@ -159,7 +159,7 @@ class ValidationConfig(object):
   do_smoke_test: bool = False
 
 
-class ParsingPolicy(object):
+class ParsingPolicy:
   """The base class for type specific parsing policies.
 
   Documentation files for models, placeholders, publishers and collections share
@@ -212,11 +212,11 @@ class ParsingPolicy(object):
           f"{self.type_name} with publisher '{self._publisher}' should be "
           f"placed in the publisher directory: '{publisher_dir}'")
 
-  def assert_can_resolve_asset(self, asset_path: str) -> None:
+  def _assert_can_resolve_asset(self, asset_path: str) -> None:
     """Check whether the asset path can be resolved."""
     pass
 
-  def assert_metadata_contains_required_fields(
+  def _assert_metadata_contains_required_fields(
       self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     required_metadata = set(self._required_metadata)
     provided_metadata = set(metadata.keys())
@@ -226,7 +226,7 @@ class ParsingPolicy(object):
           "%s. Please refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown "
           "format." % sorted(required_metadata.difference(provided_metadata)))
 
-  def assert_metadata_contains_supported_fields(
+  def _assert_metadata_contains_supported_fields(
       self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     supported_metadata = set(self.supported_metadata)
     provided_metadata = set(metadata.keys())
@@ -237,7 +237,7 @@ class ParsingPolicy(object):
           "refer to https://www.tensorflow.org/hub/writing_model_documentation for information about markdown format."
       )
 
-  def assert_no_duplicate_metadata(
+  def _assert_no_duplicate_metadata(
       self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     duplicate_metadata = list()
     for key, values in metadata.items():
@@ -249,6 +249,55 @@ class ParsingPolicy(object):
           "https://www.tensorflow.org/hub/writing_model_documentation for "
           "information about markdown format. In particular the duplicated "
           f"metadata are: {sorted(duplicate_metadata)}")
+
+  def _assert_correct_module_types(
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
+    if "module-type" in metadata:
+      allowed_prefixes = ["image-", "text-", "audio-", "video-"]
+      for value in metadata["module-type"]:
+        if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
+          raise MarkdownDocumentationError(
+              "The 'module-type' metadata has to start with any of 'image-'"
+              ", 'text', 'audio-', 'video-', but is: '{value}'")
+
+  def _assert_correct_tag_values(
+      self, metadata: Mapping[str, AbstractSet[str]],
+      yaml_parser: yaml_parser_lib.YamlParser) -> None:
+    """Checks that all tag values are defined in the respective YAML files.
+
+    Args:
+      metadata: Mapping of metadata fields to their values e.g.
+                {"language": {"en", "fr"}}.
+      yaml_parser: YamlParser containing all supported tag values.
+
+    Raises:
+      MarkdownDocumentationError: if a tag key contains elements in its set that
+        are not defined in the respective YAML file.
+      yaml.parser.ParserError: if the YAML file containing all supported values
+        is no valid YAML file.
+      FileNotFoundError: if the YAML file containing all supported values does
+        not exist.
+    """
+    for tag_name, yaml_path in yaml_parser_lib.TAG_TO_YAML_MAP.items():
+      if tag_name not in metadata:
+        continue
+
+      supported_values = yaml_parser.get_supported_values(tag_name)
+      unsupported_values = metadata[tag_name] - supported_values
+      if unsupported_values:
+        raise MarkdownDocumentationError(
+            f"Unsupported values for {tag_name} tag were found: "
+            f"{sorted(unsupported_values)}. Please add them to "
+            f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
+
+  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
+                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
+    """Asserts that correct metadata is present."""
+    self._assert_metadata_contains_required_fields(metadata)
+    self._assert_metadata_contains_supported_fields(metadata)
+    self._assert_no_duplicate_metadata(metadata)
+    self._assert_correct_module_types(metadata)
+    self._assert_correct_tag_values(metadata, yaml_parser)
 
   def assert_correct_asset_path(self, validation_config: ValidationConfig,
                                 metadata: Mapping[str, AbstractSet[str]],
@@ -305,56 +354,7 @@ class ParsingPolicy(object):
           "by its robots.txt.")
 
     if validation_config.do_smoke_test:
-      self.assert_can_resolve_asset(asset_path)
-
-  def assert_correct_module_types(
-      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
-    if "module-type" in metadata:
-      allowed_prefixes = ["image-", "text-", "audio-", "video-"]
-      for value in metadata["module-type"]:
-        if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
-          raise MarkdownDocumentationError(
-              "The 'module-type' metadata has to start with any of 'image-'"
-              ", 'text', 'audio-', 'video-', but is: '{value}'")
-
-  def assert_correct_tag_values(
-      self, metadata: Mapping[str, AbstractSet[str]],
-      yaml_parser: yaml_parser_lib.YamlParser) -> None:
-    """Checks that all tag values are defined in the respective YAML files.
-
-    Args:
-      metadata: Mapping of metadata fields to their values e.g.
-                {"language": {"en", "fr"}}.
-      yaml_parser: YamlParser containing all supported tag values.
-
-    Raises:
-      MarkdownDocumentationError: if a tag key contains elements in its set that
-        are not defined in the respective YAML file.
-      yaml.parser.ParserError: if the YAML file containing all supported values
-        is no valid YAML file.
-      FileNotFoundError: if the YAML file containing all supported values does
-        not exist.
-    """
-    for tag_name, yaml_path in yaml_parser_lib.TAG_TO_YAML_MAP.items():
-      if tag_name not in metadata:
-        continue
-
-      supported_values = yaml_parser.get_supported_values(tag_name)
-      unsupported_values = metadata[tag_name] - supported_values
-      if unsupported_values:
-        raise MarkdownDocumentationError(
-            f"Unsupported values for {tag_name} tag were found: "
-            f"{unsupported_values}. Please add them to "
-            f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
-
-  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
-                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
-    """Assert that correct metadata is present."""
-    self.assert_metadata_contains_required_fields(metadata)
-    self.assert_metadata_contains_supported_fields(metadata)
-    self.assert_no_duplicate_metadata(metadata)
-    self.assert_correct_module_types(metadata)
-    self.assert_correct_tag_values(metadata, yaml_parser)
+      self._assert_can_resolve_asset(asset_path)
 
 
 class CollectionParsingPolicy(ParsingPolicy):
@@ -419,18 +419,8 @@ class SavedModelParsingPolicy(ParsingPolicy):
   def supported_asset_path_suffix(self) -> str:
     return TARFILE_SUFFIX
 
-  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
-                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
-    super().assert_correct_metadata(metadata, yaml_parser)
-
-    format_value = list(metadata["format"])[0]
-    if format_value not in SAVED_MODEL_FORMATS:
-      raise MarkdownDocumentationError(
-          f"The 'format' metadata should be one of {SAVED_MODEL_FORMATS} "
-          f"but was '{format_value}'.")
-
-  def assert_can_resolve_asset(self, asset_path: str) -> None:
-    """Attempt to hub.resolve the given asset path."""
+  def _assert_can_resolve_asset(self, asset_path: str) -> None:
+    """Attempts to hub.resolve the given asset path."""
     try:
       resolved_model = hub.resolve(asset_path)
       loader_impl.parse_saved_model(resolved_model)
@@ -442,6 +432,16 @@ class SavedModelParsingPolicy(ParsingPolicy):
           "TF1 Hub module as described on "
           "https://www.tensorflow.org/hub/exporting_tf2_saved_model. "
           f"Underlying reason for failure: {e}.")
+
+  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
+                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
+    super().assert_correct_metadata(metadata, yaml_parser)
+
+    format_value = list(metadata.get("format", ""))[0]
+    if format_value not in SAVED_MODEL_FORMATS:
+      raise MarkdownDocumentationError(
+          f"The 'format' metadata should be one of {SAVED_MODEL_FORMATS} "
+          f"but was '{format_value}'.")
 
 
 class TfjsParsingPolicy(ParsingPolicy):
@@ -518,7 +518,7 @@ class PublisherParsingPolicy(ParsingPolicy):
     super().assert_correct_file_path(file_path, root_dir)
 
 
-class DocumentationParser(object):
+class DocumentationParser:
   """Class used for parsing model documentation strings."""
 
   def __init__(self, root_dir: str, documentation_dir: str) -> None:
@@ -539,11 +539,11 @@ class DocumentationParser(object):
   def parsed_metadata(self) -> str:
     return self._parsed_metadata
 
-  def raise_error(self, message: str) -> None:
+  def _raise_error(self, message: str) -> None:
     raise MarkdownDocumentationError(message)
 
-  def get_policy_from_first_line(self, first_line: str) -> ParsingPolicy:
-    """Return an appropriate ParsingPolicy instance for the first line."""
+  def _get_policy_from_first_line(self, first_line: str) -> ParsingPolicy:
+    """Returns an appropriate ParsingPolicy instance for the first line."""
     patterns_and_policies = [
         (MODEL_HANDLE_PATTERN, SavedModelParsingPolicy),
         (PLACEHOLDER_HANDLE_PATTERN, PlaceholderParsingPolicy),
@@ -561,7 +561,7 @@ class DocumentationParser(object):
       return policy(
           groups.get("publisher"), groups.get("name"), groups.get("vers"))
     # pytype: disable=bad-return-type
-    self.raise_error(
+    self._raise_error(
         "First line of the documentation file must match one of the following "
         "formats depending on the MD type:\n"
         f"TF Model: {MODEL_HANDLE_PATTERN}\n"
@@ -575,19 +575,19 @@ class DocumentationParser(object):
         f"first line is '{first_line}'")
     # pytype: enable=bad-return-type
 
-  def assert_publisher_page_exists(self) -> None:
-    """Assert that publisher page exists for the publisher of this model."""
+  def _assert_publisher_page_exists(self) -> None:
+    """Asserts that publisher page exists for the publisher of this model."""
     # Use a publisher policy to get the expected documentation page path.
     publisher_policy = PublisherParsingPolicy(self.policy.publisher)
     expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
         self._documentation_dir)
     if not tf.io.gfile.exists(expected_publisher_doc_file_path):
-      self.raise_error(
+      self._raise_error(
           "Publisher documentation does not exist. "
           f"It should be added to {expected_publisher_doc_file_path}.")
 
-  def consume_description(self) -> None:
-    """Consume second line with a short model description."""
+  def _consume_description(self) -> None:
+    """Consumes second line with a short model description."""
     description_lines = []
     self._current_index = 1
     # Allow an empty line between handle and description.
@@ -603,8 +603,8 @@ class DocumentationParser(object):
           "Second line of the documentation file has to contain a short "
           "description. For example 'Word2vec text embedding model.'.")
 
-  def consume_metadata(self) -> None:
-    """Consume all metadata."""
+  def _consume_metadata(self) -> None:
+    """Consumes all metadata."""
     while self._current_index < len(
         self._lines) and (not self._lines[self._current_index].startswith("#")):
       if not self._lines[self._current_index]:
@@ -647,8 +647,8 @@ class DocumentationParser(object):
           "https://www.tensorflow.org/hub/writing_model_documentation for "
           "information about markdown format.")
 
-  def assert_allowed_license(self) -> None:
-    """Validate provided license."""
+  def _assert_allowed_license(self) -> None:
+    """Validates provided license."""
     if "license" in self._parsed_metadata:
       license_id = list(self._parsed_metadata["license"])[0]
       allowed_license_ids = [
@@ -657,7 +657,7 @@ class DocumentationParser(object):
           "MPL-2.0", "CDDL-1.0", "EPL-2.0", "custom"
       ]
       if license_id not in allowed_license_ids:
-        self.raise_error(
+        self._raise_error(
             f"The license {license_id} provided in metadata is not allowed. "
             "Please specify a license id from list of allowed ids: "
             f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
@@ -669,24 +669,24 @@ class DocumentationParser(object):
     raw_content = filesystem_utils.get_content(self._file_path)
     self._lines = raw_content.split("\n")
     first_line = self._lines[0].replace("&zwnj;", "")
-    self.policy = self.get_policy_from_first_line(first_line)
+    self.policy = self._get_policy_from_first_line(first_line)
 
     try:
       self.policy.assert_correct_file_path(self._file_path,
                                            self._documentation_dir)
       # Populate _parsed_description with the description
-      self.consume_description()
+      self._consume_description()
       # Populate _parsed_metadata with the metadata tag mapping
-      self.consume_metadata()
+      self._consume_metadata()
       self.policy.assert_correct_metadata(self._parsed_metadata, yaml_parser)
       if not validation_config.skip_asset_check:
         self.policy.assert_correct_asset_path(validation_config,
                                               self._parsed_metadata,
                                               self._file_path)
     except MarkdownDocumentationError as e:
-      self.raise_error(str(e))
-    self.assert_allowed_license()
-    self.assert_publisher_page_exists()
+      self._raise_error(str(e))
+    self._assert_allowed_license()
+    self._assert_publisher_page_exists()
 
 
 def validate_documentation_dir(validation_config: ValidationConfig,

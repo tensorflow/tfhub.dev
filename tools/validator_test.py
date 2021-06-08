@@ -15,14 +15,44 @@
 """Tests for tensorflow_hub.tfhub_dev.tools.validator."""
 
 import os
+import textwrap
 from unittest import mock
 
+from absl.testing import parameterized
 import tensorflow as tf
 import validator
 import yaml_parser
 
+DATASET_YAML = """
+values:
+  - id: mnist
+    display_name: MNIST
+  - id: wikipedia
+    display_name: Wikipedia"""
 
-MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
+ARCHITECTURE_YAML = """
+values:
+  - id: bert
+    display_name: BERT
+  - id: transformer
+    display_name: Transformer"""
+
+LANGUAGE_YAML = """
+values:
+  - id: en
+    display_name: English
+  - id: fr
+    display_name: French"""
+
+TAG_FILE_NAME_TO_CONTENT_MAP = {
+    "network_architecture.yaml": ARCHITECTURE_YAML,
+    "dataset.yaml": DATASET_YAML,
+    "language.yaml": LANGUAGE_YAML
+}
+
+LEGACY_VALUE = "legacy"
+
+MINIMAL_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
@@ -34,20 +64,7 @@ multiple lines.
 ## Overview
 """
 
-MARKDOWN_WITH_EMPTY_SECOND_LINE = """# Module google/text-embedding-model/1
-
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: %s -->
-<!-- module-type:   text-embedding   -->
-<!-- fine-tunable:true -->
-<!-- format: saved_model_2 -->
-
-## Overview
-"""
-
-MARKDOWN_SAVED_MODEL_UNSUPPORTED_TAG = """# Module google/model/1
+SAVED_MODEL_OPTIONAL_TAG_TEMPLATE = """# Module google/model/1
 Simple description spanning
 multiple lines.
 
@@ -55,225 +72,22 @@ multiple lines.
 <!-- module-type:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
-<!-- unsupported_tag: value -->
+<!-- {tag_key}: {tag_value} -->
 """
 
-MARKDOWN_SAVED_MODEL_UNSUPPORTED_DATASET = """# Module google/model/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type:   text-embedding   -->
-<!-- fine-tunable:true -->
-<!-- format: saved_model_2 -->
-<!-- language: en -->
-<!-- dataset: non-existent -->
-"""
-
-MARKDOWN_SAVED_MODEL_UNSUPPORTED_ARCHITECTURE = """# Module google/model/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type:   text-embedding   -->
-<!-- fine-tunable:true -->
-<!-- format: saved_model_2 -->
-<!-- network-architecture: non-existent -->
-"""
-
-MARKDOWN_SAVED_MODEL_UNSUPPORTED_LANGUAGE = """# Module google/model/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type:   text-embedding   -->
-<!-- fine-tunable:true -->
-<!-- format: saved_model_2 -->
-<!-- language: non-existent -->
-"""
-
-MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: %s -->
-<!-- module-type:   text-embedding   -->
-<!-- fine-tunable:true -->
-<!-- format: saved_model_2 -->
-<!-- dataset: mnist -->
-<!-- interactive-model-name: vision -->
-<!-- language: en -->
-<!-- network-architecture: bert -->
-<!-- license: Apache-2.0 -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-model/1
-Simple description spanning
-multiple lines.
-
-<!-- module-type:   text-embedding   -->
-"""
-
-MARKDOWN_PLACEHOLDER_UNSUPPORTED_TAG = """# Placeholder google/text-embedding-model/1
-Simple description spanning
-multiple lines.
-
-<!-- module-type:   text-embedding   -->
-<!-- unsupported_tag: value -->
-"""
-
-MARKDOWN_PLACEHOLDER_UNSUPPORTED_LANGUAGE = """# Placeholder google/a/1
-Simple description spanning
-multiple lines.
-
-<!-- module-type: text-embedding   -->
-<!-- language: non-existent -->
-"""
-
-MAXIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE = """# Placeholder google/text-embedding-model/1
-Simple description spanning
-multiple lines.
-
-<!-- dataset: mnist -->
-<!-- fine-tunable:true -->
-<!-- interactive-model-name: vision -->
-<!-- language: en -->
-<!-- module-type:   text-embedding   -->
-<!-- network-architecture: bert -->
-<!-- license: Apache-2.0 -->
-"""
-
-MINIMAL_MARKDOWN_LITE_TEMPLATE = """# Lite google/text-embedding-model/lite/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: %s -->
-<!-- parent-model: google/text-embedding-model/1 -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_LITE_WITH_FORBIDDEN_FORMAT = """# Lite google/model/lite/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: /path/to/model.tflite -->
-<!-- parent-model: google/text-embedding-model/1 -->
-<!-- format: saved_model -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_LITE_WITH_UNSUPPORTED_TAG = """# Lite google/model/lite/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: /path/to/model.tflite -->
-<!-- parent-model: google/text-embedding-model/1 -->
-<!-- unsupported_tag: value -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_TFJS_TEMPLATE = """# Tfjs google/text-embedding-model/tfjs/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: %s -->
-<!-- parent-model:   google/text-embedding-model/1   -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_CORAL_TEMPLATE = """# Coral google/text-embedding-model/coral/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: %s -->
-<!-- parent-model:   google/text-embedding-model/1   -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_WITH_UNKNOWN_PUBLISHER = """# Module publisher-without-page/text-embedding-model/1
-Simple description spanning
-multiple lines.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type:   text-embedding   -->
-<!-- fine-tunable:true -->
-<!-- format: saved_model_2 -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_WITH_ALLOWED_LICENSE = """# Module google/model/1
+SAVED_MODEL_LICENSE_TEMPLATE = """# Module google/model/1
 Simple description.
 
 <!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
-<!-- license: BSD-3-Clause -->
+<!-- license: %s -->
 
 ## Overview
 """
 
-MINIMAL_MARKDOWN_WITH_UNKNOWN_LICENSE = """# Module google/model/1
-Simple description.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
-<!-- license: my_license -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_WITH_BAD_MODULE_TYPE = """# Module google/model/1
-Simple description.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type: something-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
-<!-- license: my_license -->
-
-## Overview
-"""
-
-MINIMAL_MARKDOWN_WITH_UNSUPPORTED_FORMAT = """# Module google/model/1
-Simple description.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: unsupported -->
-<!-- license: Apache-2.0 -->
-
-## Overview
-"""
-
-MARKDOWN_WITH_DOUBLE_SLASH_IN_HANDLE = """# Module google/model//1
-Simple description.
-"""
-
-MARKDOWN_WITH_BAD_CHARS_IN_HANDLE = """# Module google/text-embedding&nbsp;/1
-Simple description.
-"""
-
-MARKDOWN_WITH_MISSING_MODEL_IN_HANDLE = """# Module google/1
-Simple description.
-"""
-
-MARKDOWN_WITH_MISSING_VERSION_IN_HANDLE = """# Module google/model
-Simple description.
-"""
-
-MARKDOWN_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
+SAVED_MODEL_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
 
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- format: saved_model_2 -->
@@ -281,94 +95,83 @@ MARKDOWN_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
 ## Overview
 """
 
-MARKDOWN_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK = """# Module google/text-embedding-model/1
+SAVED_MODEL_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK = """# Module google/text-embedding-model/1
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- format: saved_model_2 -->
 
 ## Overview
 """
 
-MARKDOWN_WITH_MISSING_METADATA = """# Module google/text-embedding-model/1
-One line description.
-<!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
-<!-- format: saved_model_2 -->
-
-## Overview
-"""
-
-MARKDOWN_WITH_FORBIDDEN_DUPLICATE_METADATA = """# Module google/model/1
-One line description.
-<!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
-<!-- asset-path: https://path/to/text-embedding-model/model2.tar.gz -->
-<!-- module-type: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
-
-## Overview
-"""
-
-MARKDOWN_WITH_ALLOWED_DUPLICATE_METADATA = """# Module google/model/1
+SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE = """# Module google/model/1
 One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- module-type: text-classification -->
 <!-- module-type: text-embedding -->
+<!-- {tag_key_1}: {tag_value_1} -->
+<!-- {tag_key_2}: {tag_value_2} -->
+<!-- fine-tunable: true -->
+<!-- format: saved_model_2 -->
+
+## Overview
+"""
+
+MAXIMAL_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: %s -->
+<!-- module-type:   text-embedding   -->
+<!-- fine-tunable:true -->
+<!-- format: saved_model_2 -->
 <!-- dataset: mnist -->
-<!-- dataset: wikipedia -->
+<!-- interactive-model-name: vision -->
 <!-- language: en -->
-<!-- language: fr -->
-<!-- network-architecture: transformer -->
-<!-- network-architecture: efficientnet -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
+<!-- network-architecture: bert -->
+<!-- license: Apache-2.0 -->
 
 ## Overview
 """
 
-MARKDOWN_WITH_LEGACY_TAG = """# Module google/text-embedding-model/1
-One line description.
-<!-- asset-path: legacy -->
-<!-- module-type: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
+MINIMAL_PLACEHOLDER = """# Placeholder google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- module-type:   text-embedding   -->
+"""
+
+PLACEHOLDER_OPTIONAL_TAG_TEMPLATE = """# Placeholder google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- module-type:   text-embedding   -->
+<!-- {tag_key}: {tag_value} -->
+"""
+
+MAXIMAL_PLACEHOLDER = """# Placeholder google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- dataset: mnist -->
+<!-- fine-tunable:true -->
+<!-- interactive-model-name: vision -->
+<!-- language: en -->
+<!-- module-type:   text-embedding   -->
+<!-- network-architecture: bert -->
+<!-- license: Apache-2.0 -->
+"""
+
+LITE_OPTIONAL_TAG_TEMPLATE = """# Lite google/model/lite/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model.tflite -->
+<!-- parent-model: google/text-embedding-model/1 -->
+<!-- {tag_key}: {tag_value} -->
 
 ## Overview
 """
 
-MARKDOWN_WITH_COLAB_BUTTON = """# Module google/text-embedding-model/1
-One line description.
-<!-- asset-path: https://path/to/model.tar.gz -->
-<!-- module-type: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
-
-[![Open Colab notebook]](https://colab.research.google.com)
-
-## Overview
-"""
-
-MARKDOWN_WITH_DEMO_BUTTON = """# Module google/text-embedding-model/1
-One line description.
-<!-- asset-path: https://path/to/model.tar.gz -->
-<!-- module-type: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
-
-[![Open Demo]](https://teachablemachine.withgoogle.com/train/pose)
-
-## Overview
-"""
-
-MARKDOWN_WITH_UNEXPECTED_LINES = """# Module google/text-embedding-model/1
-One line description.
-<!-- module-type: text-embedding -->
-
-This should not be here.
-<!-- format: saved_model_2 -->
-
-## Overview
-"""
-
-MINIMAL_COLLECTION_MARKDOWN = """# Collection google/text-embedding-collection/1
+MINIMAL_COLLECTION = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
 
@@ -377,17 +180,17 @@ multiple lines.
 ## Overview
 """
 
-MARKDOWN_COLLECTION_UNSUPPORTED_LANGUAGE = """# Collection google/model/1
+COLLECTION_OPTIONAL_TAG_TEMPLATE = """# Collection google/model/1
 Simple description spanning
 multiple lines.
 
 <!-- module-type: text-embedding -->
-<!-- language: non-existent -->
+<!-- {tag_key}: {tag_value} -->
 
 ## Overview
 """
 
-MAXIMAL_COLLECTION_MARKDOWN = """# Collection google/text-embedding-collection/1
+MAXIMAL_COLLECTION = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
 
@@ -399,7 +202,7 @@ multiple lines.
 ## Overview
 """
 
-MINIMAL_PUBLISHER_MARKDOWN = """# Publisher %s
+PUBLISHER_HANDLE_TEMPLATE = """# Publisher %s
 Simple description spanning one line.
 
 [![Icon URL]](https://path/to/icon.png)
@@ -408,7 +211,7 @@ Simple description spanning one line.
 """
 
 
-class ValidatorTest(tf.test.TestCase):
+class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
@@ -419,24 +222,12 @@ class ValidatorTest(tf.test.TestCase):
     self.model_path = os.path.join(self.tmp_dir, "model_1.tar.gz")
     self.not_a_model_path = os.path.join(self.tmp_dir, "not_a_model.tar.gz")
     self.save_dummy_model(self.model_path)
-    self.minimal_markdown = MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
-    self.maximal_markdown = MAXIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.model_path
+    self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
+    self.maximal_markdown = MAXIMAL_SAVED_MODEL_TEMPLATE % self.model_path
     self.minimal_markdown_with_bad_model = (
-        MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE % self.not_a_model_path)
-    dataset_yaml = """values:
-                       - id: mnist
-                         display_name: MNIST
-                       - id: wikipedia
-                         display_name: Wikipedia"""
-    self.set_content("root/tags/dataset.yaml", dataset_yaml)
-    architecture_yaml = """values:
-                         - id: bert
-                           display_name: BERT
-                         - id: transformer
-                           display_name: Transformer"""
-    self.set_content("root/tags/network_architecture.yaml", architecture_yaml)
-    language_yaml = "values:\n  - id: en\n    display_name: English"
-    self.set_content("root/tags/language.yaml", language_yaml)
+        MINIMAL_SAVED_MODEL_TEMPLATE % self.not_a_model_path)
+    for file_name, content in TAG_FILE_NAME_TO_CONTENT_MAP.items():
+      self.set_content(f"root/tags/{file_name}", content)
     self.asset_path_modified = mock.patch.object(
         validator, "_is_asset_path_modified", return_value=True)
     self.asset_path_modified.start()
@@ -453,7 +244,7 @@ class ValidatorTest(tf.test.TestCase):
 
   def set_up_publisher_page(self, publisher):
     self.set_content(f"root/assets/docs/{publisher}/{publisher}.md",
-                     MINIMAL_PUBLISHER_MARKDOWN % publisher)
+                     PUBLISHER_HANDLE_TEMPLATE % publisher)
 
   def save_dummy_model(self, path):
 
@@ -469,47 +260,87 @@ class ValidatorTest(tf.test.TestCase):
     tf.saved_model.save(model, path)
 
   def test_markdown_parsed_saved_model(self):
+    empty_second_line = textwrap.dedent(f"""\
+       # Module google/text-embedding-model/1
+
+       Simple description spanning
+       multiple lines.
+
+       <!-- asset-path: {self.model_path} -->
+       <!-- module-type:   text-embedding   -->
+       <!-- fine-tunable:true -->
+       <!-- format: saved_model_2 -->
+
+       ## Overview""")
     for markdown in [
-        self.minimal_markdown, self.maximal_markdown,
-        MARKDOWN_WITH_EMPTY_SECOND_LINE % self.model_path
+        self.minimal_markdown, self.maximal_markdown, empty_second_line
     ]:
       self.set_up_publisher_page("google")
       self.set_content(
           "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
+
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_markdown_parsed_placeholder(self):
+  @parameterized.parameters(MINIMAL_PLACEHOLDER, MAXIMAL_PLACEHOLDER)
+  def test_markdown_parsed_placeholder(self, markdown):
     self.set_up_publisher_page("google")
-    for markdown in [
-        MINIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE,
-        MAXIMAL_MARKDOWN_PLACEHOLDER_TEMPLATE
-    ]:
-      self.set_content(
-          "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
-      validator.validate_documentation_dir(
-          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+                     markdown)
+
+    validator.validate_documentation_dir(
+        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_lite(self):
     lite_model = os.path.join(self.tmp_dir, "model.tflite")
+    content = textwrap.dedent(f"""\
+      # Lite google/text-embedding-model/lite/1
+      Simple description spanning
+      multiple lines.
+
+      <!-- asset-path: {lite_model} -->
+      <!-- parent-model: google/text-embedding-model/1 -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     (MINIMAL_MARKDOWN_LITE_TEMPLATE % lite_model))
+                     content)
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_tfjs(self):
+    content = textwrap.dedent(f"""\
+      # Tfjs google/text-embedding-model/tfjs/1
+      Simple description spanning
+      multiple lines.
+
+      <!-- asset-path: {self.model_path} -->
+      <!-- parent-model:   google/text-embedding-model/1   -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     (MINIMAL_MARKDOWN_TFJS_TEMPLATE % self.model_path))
+                     content)
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_coral(self):
     lite_model = os.path.join(self.tmp_dir, "model.tflite")
+    content = textwrap.dedent(f"""\
+      # Coral google/text-embedding-model/coral/1
+      Simple description spanning
+      multiple lines.
+
+      <!-- asset-path: {lite_model} -->
+      <!-- parent-model:   google/text-embedding-model/1   -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     (MINIMAL_MARKDOWN_CORAL_TEMPLATE % lite_model))
+                     content)
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
@@ -517,146 +348,190 @@ class ValidatorTest(tf.test.TestCase):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_files(
         validation_config=self.validation_config,
         root_dir=self.tmp_root_dir,
         files_to_validate=["google/models/text-embedding-model/1.md"])
 
-  def test_collection_markdown_parsed(self):
+  @parameterized.parameters(MINIMAL_COLLECTION, MAXIMAL_COLLECTION)
+  def test_collection_markdown_parsed(self, markdown):
     self.set_up_publisher_page("google")
-    for markdown in [MINIMAL_COLLECTION_MARKDOWN, MAXIMAL_COLLECTION_MARKDOWN]:
-      self.set_content(
-          "root/assets/docs/google/collections/text-embedding-collection/1.md",
-          markdown)
-      validator.validate_documentation_dir(
-          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+    self.set_content(
+        "root/assets/docs/google/collections/text-embedding-collection/1.md",
+        markdown)
+
+    validator.validate_documentation_dir(
+        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_publisher_markdown_parsed(self):
     self.set_up_publisher_page("some-publisher")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_invalid_markdown_fails(self):
     self.set_content("root/assets/docs/publisher/model/1.md",
                      "INVALID MARKDOWN")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*First line.*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*First line.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_not_in_publisher_dir(self):
     self.set_content("root/assets/docs/gooogle/models/wrong-location/1.md",
                      self.minimal_markdown)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*placed in the publisher directory.*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*placed in the publisher directory.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_fails_if_publisher_page_does_not_exist(self):
-    self.set_content(
-        "root/assets/docs/publisher-without-page/models/text-embedding-model/1.md",
-        MINIMAL_MARKDOWN_WITH_UNKNOWN_PUBLISHER)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*Publisher documentation does not.*"):
+    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+                     self.minimal_markdown)
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*Publisher documentation does not.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_does_not_end_with_md_fails(self):
     self.set_content("root/assets/docs/google/models/wrong-extension/1.mdz",
                      self.minimal_markdown)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 r".*end with '\.md.'*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                r".*end with '\.md.'*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_publisher_markdown_at_incorrect_location_fails(self):
     self.set_content("root/assets/docs/google/publisher.md",
-                     MINIMAL_PUBLISHER_MARKDOWN % "some-publisher")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 r".*some-publisher\.md.*"):
+                     PUBLISHER_HANDLE_TEMPLATE % "some-publisher")
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                r".*some-publisher\.md.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_publisher_markdown_at_correct_location(self):
     self.set_up_publisher_page("some-publisher")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_markdown_with_bad_handle(self):
-    for markdown in [
-        MARKDOWN_WITH_DOUBLE_SLASH_IN_HANDLE, MARKDOWN_WITH_BAD_CHARS_IN_HANDLE,
-        MARKDOWN_WITH_MISSING_MODEL_IN_HANDLE,
-        MARKDOWN_WITH_MISSING_VERSION_IN_HANDLE
-    ]:
-      self.set_content("root/assets/docs/google/models/model/1.md", markdown)
-      with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                   ".*First line of the documentation*"):
-        validator.validate_documentation_dir(
-            validation_config=self.validation_config,
-            root_dir=self.tmp_root_dir)
+  @parameterized.parameters("google/model//1", "google/text-embedding&nbsp;/1",
+                            "google/1", "google/model")
+  def test_markdown_with_bad_handle(self, handle):
+    content = textwrap.dedent("""\
+      # Module %s
+      Simple description.""" % handle)
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
 
-  def test_markdown_without_description(self):
-    for markdown in [
-        MARKDOWN_WITHOUT_DESCRIPTION,
-        MARKDOWN_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK
-    ]:
-      self.set_content(
-          "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
-      with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                   ".*has to contain a short description.*"):
-        validator.validate_documentation_dir(
-            validation_config=self.validation_config,
-            root_dir=self.tmp_root_dir)
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*First line of the documentation*"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters(SAVED_MODEL_WITHOUT_DESCRIPTION,
+                            SAVED_MODEL_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK)
+  def test_markdown_without_description(self, markdown):
+    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+                     markdown)
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*has to contain a short description.*"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_missing_metadata(self):
+    content = textwrap.dedent("""\
+      # Module google/text-embedding-model/1
+      One line description.
+      <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
+      <!-- format: saved_model_2 -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     MARKDOWN_WITH_MISSING_METADATA)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*missing.*fine-tunable.*module-type.*"):
+                     content)
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*missing.*fine-tunable.*module-type.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unsupported_format_metadata(self):
+    content = textwrap.dedent("""\
+      # Module google/model/1
+      Simple description.
+
+      <!-- asset-path: /path/to/model.tar.gz -->
+      <!-- module-type: text-embedding -->
+      <!-- fine-tunable: true -->
+      <!-- format: unsupported -->
+      <!-- license: Apache-2.0 -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     MINIMAL_MARKDOWN_WITH_UNSUPPORTED_FORMAT)
-    with self.assertRaisesRegexp(
+                     content)
+
+    with self.assertRaisesRegex(
         validator.MarkdownDocumentationError, "The 'format' metadata.*but "
         "was 'unsupported'."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_forbidden_duplicate_metadata(self):
+    content = textwrap.dedent("""\
+      # Module google/model/1
+      One line description.
+      <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
+      <!-- asset-path: https://path/to/text-embedding-model/model2.tar.gz -->
+      <!-- module-type: text-embedding -->
+      <!-- fine-tunable: true -->
+      <!-- format: saved_model_2 -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     MARKDOWN_WITH_FORBIDDEN_DUPLICATE_METADATA)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*duplicate.*asset-path.*"):
+                     content)
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*duplicate.*asset-path.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_markdown_with_allowed_duplicate_metadata(self):
+  @parameterized.parameters(
+      ("dataset", ["mnist", "wikipedia"]), ("language", ["en", "fr"]),
+      ("network-architecture", ["bert", "transformer"]),
+      ("module-type", ["text-classification", "text-embedding"]))
+  def test_markdown_with_allowed_duplicate_metadata(self, tag_key, tag_values):
     self.set_up_publisher_page("google")
-    language_yaml = """values:
-      - id: en
-        display_name: English
-      - id: fr
-        display_name: French"""
-    self.set_content("root/tags/language.yaml", language_yaml)
-    architecture_yaml = """values:
-                         - id: efficientnet
-                           display_name: EfficientNet
-                         - id: transformer
-                           display_name: Transformer"""
-    self.set_content("root/tags/network_architecture.yaml", architecture_yaml)
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MARKDOWN_WITH_ALLOWED_DUPLICATE_METADATA)
+    content = SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE.format(
+        tag_key_1=tag_key,
+        tag_key_2=tag_key,
+        tag_value_1=tag_values[0],
+        tag_value_2=tag_values[1])
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unexpected_lines(self):
+    content = textwrap.dedent("""\
+      # Module google/text-embedding-model/1
+      One line description.
+      <!-- module-type: text-embedding -->
+
+      This should not be here.
+      <!-- format: saved_model_2 -->
+
+      ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     MARKDOWN_WITH_UNEXPECTED_LINES)
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*Unexpected line.*"):
+                     content)
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*Unexpected line.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
@@ -667,11 +542,13 @@ class ValidatorTest(tf.test.TestCase):
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir)
     parser = yaml_parser.YamlParser(self.tmp_root_dir)
+
     documentation_parser.validate(
         validation_config=self.validation_config,
         yaml_parser=parser,
         file_path=self.get_full_path(
             "root/assets/docs/google/models/text-embedding-model/1.md"))
+
     self.assertEqual("Simple description spanning multiple lines.",
                      documentation_parser.parsed_description)
     expected_metadata = {
@@ -685,11 +562,12 @@ class ValidatorTest(tf.test.TestCase):
   def test_asset_path_is_github_download_url_test(self):
     self.set_content(
         "root/assets/docs/google/models/text-embedding-model/1.md",
-        MINIMAL_MARKDOWN_SAVED_MODEL_TEMPLATE %
+        MINIMAL_SAVED_MODEL_TEMPLATE %
         "https://github.com/some_repo/releases/download/some_path.tar.gz")
     self.set_up_publisher_page("google")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*cannot be automatically fetched.*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*cannot be automatically fetched.*"):
       validator.validate_documentation_files(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir,
@@ -697,10 +575,11 @@ class ValidatorTest(tf.test.TestCase):
 
   def test_asset_path_is_legacy_and_modified(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     MARKDOWN_WITH_LEGACY_TAG)
+                     MINIMAL_SAVED_MODEL_TEMPLATE % LEGACY_VALUE)
     self.set_up_publisher_page("google")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*end with .tar.gz but was legacy."):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*end with .tar.gz but was legacy."):
       validator.validate_documentation_files(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir,
@@ -711,8 +590,9 @@ class ValidatorTest(tf.test.TestCase):
         validator, "_is_asset_path_modified", return_value=False)
     self.asset_path_modified.start()
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     MARKDOWN_WITH_LEGACY_TAG)
+                     MINIMAL_SAVED_MODEL_TEMPLATE % LEGACY_VALUE)
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_files(
         validation_config=self.validation_config,
         root_dir=self.tmp_root_dir,
@@ -722,8 +602,9 @@ class ValidatorTest(tf.test.TestCase):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      self.minimal_markdown_with_bad_model)
     self.set_up_publisher_page("google")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*failed to parse.*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*failed to parse.*"):
       validator.validate_documentation_files(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
           root_dir=self.tmp_root_dir,
@@ -731,108 +612,135 @@ class ValidatorTest(tf.test.TestCase):
 
   def test_markdown_with_allowed_license(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
-                     MINIMAL_MARKDOWN_WITH_ALLOWED_LICENSE)
+                     SAVED_MODEL_LICENSE_TEMPLATE % "BSD-3-Clause")
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_markdown_colab_button(self):
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MARKDOWN_WITH_COLAB_BUTTON)
-    self.set_up_publisher_page("google")
-    validator.validate_documentation_dir(
-        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+  @parameterized.parameters(
+      ("Open Colab notebook", "https://colab.research.google.com"),
+      ("Open Demo", "https://teachablemachine.withgoogle.com/train/pose"))
+  def test_markdown_buttons(self, button_text, button_value):
+    content = textwrap.dedent(f"""\
+      # Module google/text-embedding-model/1
+      One line description.
+      <!-- asset-path: https://path/to/model.tar.gz -->
+      <!-- module-type: text-embedding -->
+      <!-- fine-tunable: true -->
+      <!-- format: saved_model_2 -->
 
-  def test_markdown_demo_button(self):
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MARKDOWN_WITH_DEMO_BUTTON)
+      [![{button_text}]]({button_value})
+
+      ## Overview""")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
     self.set_up_publisher_page("google")
+
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unknown_license(self):
     self.set_content("root/assets/docs/google/models/model/1.md",
-                     MINIMAL_MARKDOWN_WITH_UNKNOWN_LICENSE)
+                     SAVED_MODEL_LICENSE_TEMPLATE % "my_license")
     self.set_up_publisher_page("google")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*specify a license id from list.*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*specify a license id from list.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_module_type(self):
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MINIMAL_MARKDOWN_WITH_BAD_MODULE_TYPE)
+    self.set_content(
+        "root/assets/docs/google/models/model/1.md",
+        SAVED_MODEL_OPTIONAL_TAG_TEMPLATE.format(
+            tag_key="module-type", tag_value="something-embedding"))
     self.set_up_publisher_page("google")
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 ".*metadata has to start with.*"):
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*metadata has to start with.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_forbidden_format_metadata(self):
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MINIMAL_MARKDOWN_LITE_WITH_FORBIDDEN_FORMAT)
+    self.set_content(
+        "root/assets/docs/google/models/model/1.md",
+        LITE_OPTIONAL_TAG_TEMPLATE.format(
+            tag_key="format", tag_value="saved_model"))
     self.set_up_publisher_page("google")
-    with self.assertRaisesRegexp(
+
+    with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
         r".*contains unsupported metadata properties: \['format'\].*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_markdown_with_unsupported_metadata(self):
+  @parameterized.parameters(PLACEHOLDER_OPTIONAL_TAG_TEMPLATE,
+                            SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
+                            LITE_OPTIONAL_TAG_TEMPLATE)
+  def test_markdown_with_unsupported_metadata(self, markdown_template):
     self.set_up_publisher_page("google")
-    for markdown in [
-        MARKDOWN_SAVED_MODEL_UNSUPPORTED_TAG,
-        MARKDOWN_PLACEHOLDER_UNSUPPORTED_TAG,
-        MINIMAL_MARKDOWN_LITE_WITH_UNSUPPORTED_TAG
-    ]:
-      self.set_content("root/assets/docs/google/models/model/1.md", markdown)
-      with self.assertRaisesRegexp(
-          validator.MarkdownDocumentationError,
-          r".*contains unsupported metadata properties: \['unsupported_tag'\].*"
-      ):
-        validator.validate_documentation_dir(
-            validation_config=self.validation_config,
-            root_dir=self.tmp_root_dir)
+    content = markdown_template.format(
+        tag_key="unsupported_tag", tag_value="value")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
 
-  def test_markdown_with_unsupported_dataset(self):
-    self.set_up_publisher_page("google")
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MARKDOWN_SAVED_MODEL_UNSUPPORTED_DATASET)
-    with self.assertRaisesRegexp(
+    with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
-        r".*Unsupported values for dataset tag were found: {'non-existent'}. "
-        r"Please add them to tags/dataset.yaml."):
+        r".*contains unsupported metadata properties: \['unsupported_tag'\].*"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters(
+      ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
+      ("network-architecture", "n/a", "network_architecture"))
+  def test_saved_model_markdown_with_unsupported_tag_value(
+      self, tag_key, tag_value, yaml_file_name):
+    self.set_up_publisher_page("google")
+    content = SAVED_MODEL_OPTIONAL_TAG_TEMPLATE.format(
+        tag_key=tag_key, tag_value=tag_value)
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        f"Unsupported values for {tag_key} tag were found: "
+        rf"\['{tag_value}'\]. Please add them to tags/{yaml_file_name}.yaml."):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters(
+      ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
+      ("network-architecture", "n/a", "network_architecture"))
+  def test_collection_markdown_with_unsupported_tag_value(
+      self, tag_key, tag_value, yaml_file_name):
+    self.set_up_publisher_page("google")
+    content = COLLECTION_OPTIONAL_TAG_TEMPLATE.format(
+        tag_key=tag_key, tag_value=tag_value)
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        f"Unsupported values for {tag_key} tag were found: "
+        rf"\['{tag_value}'\]. Please add them to tags/{yaml_file_name}.yaml."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
 
-  def test_markdown_with_unsupported_architecture(self):
+  @parameterized.parameters(
+      ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
+      ("network-architecture", "n/a", "network_architecture"))
+  def test_placeholder_markdown_with_unsupported_tag_value(
+      self, tag_key, tag_value, yaml_file_name):
     self.set_up_publisher_page("google")
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     MARKDOWN_SAVED_MODEL_UNSUPPORTED_ARCHITECTURE)
-    with self.assertRaisesRegexp(
+    content = PLACEHOLDER_OPTIONAL_TAG_TEMPLATE.format(
+        tag_key=tag_key, tag_value=tag_value)
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
-        r".*Unsupported values for network-architecture tag were found: "
-        "{'non-existent'}. Please add them to tags/network_architecture.yaml."):
+        f"Unsupported values for {tag_key} tag were found: "
+        rf"\['{tag_value}'\]. Please add them to tags/{yaml_file_name}.yaml."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
-
-  def test_markdown_with_unsupported_language(self):
-    self.set_up_publisher_page("google")
-    for markdown in [
-        MARKDOWN_COLLECTION_UNSUPPORTED_LANGUAGE,
-        MARKDOWN_PLACEHOLDER_UNSUPPORTED_LANGUAGE,
-        MARKDOWN_SAVED_MODEL_UNSUPPORTED_LANGUAGE
-    ]:
-      self.set_content("root/assets/docs/google/models/model/1.md", markdown)
-      with self.assertRaisesRegexp(
-          validator.MarkdownDocumentationError,
-          r".*Unsupported values for language tag were found: {'non-existent'}. "
-          r"Please add them to tags/language.yaml."):
-        validator.validate_documentation_dir(
-            validation_config=self.validation_config,
-            root_dir=self.tmp_root_dir)
 
   def test_model_with_invalid_filenames_fails_smoke_test(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -844,8 +752,8 @@ class ValidatorTest(tf.test.TestCase):
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir)
 
-    with self.assertRaisesRegexp(validator.MarkdownDocumentationError,
-                                 r"Invalid filepath.*\.invalid_file"):
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                r"Invalid filepath.*\.invalid_file"):
       documentation_parser.validate(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
           yaml_parser=parser,

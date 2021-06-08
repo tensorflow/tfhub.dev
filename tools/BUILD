@@ -129,6 +129,7 @@ pytype_strict_test(
     deps = [
         ":validator_lib",
         ":yaml_parser",
+        "@io_abseil_py//absl/testing:parameterized",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
     ],
 )

@@ -92,6 +92,11 @@ values:
     domains:
       - image
       - text
+  - id: image-text-detection
+    display_name: Image text detection
+    domains:
+      - image
+      - text
   - id: text-classification
     display_name: Text classification
     domains:

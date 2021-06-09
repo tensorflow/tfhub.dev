@@ -380,9 +380,9 @@ class CollectionParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["module-type"],
+        required_metadata=["module-type", "task"],
         optional_metadata=[
-            "dataset", "language", "network-architecture", "task"
+            "dataset", "language", "network-architecture",
         ])
 
   @property
@@ -399,10 +399,10 @@ class PlaceholderParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["module-type"],
+        required_metadata=["module-type", "task"],
         optional_metadata=[
             "dataset", "fine-tunable", "interactive-model-name", "language",
-            "license", "network-architecture", "task"
+            "license", "network-architecture"
         ])
 
   @property
@@ -420,11 +420,11 @@ class SavedModelParsingPolicy(ParsingPolicy):
         model_name,
         model_version,
         required_metadata=[
-            "asset-path", "module-type", "fine-tunable", "format"
+            "asset-path", "module-type", "fine-tunable", "format", "task"
         ],
         optional_metadata=[
             "dataset", "interactive-model-name", "language", "license",
-            "network-architecture", "task"
+            "network-architecture"
         ])
 
   @property

@@ -70,6 +70,7 @@ multiple lines.
 
 <!-- asset-path: %s -->
 <!-- module-type:   text-embedding   -->
+<!-- task:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
 
@@ -82,6 +83,7 @@ multiple lines.
 
 <!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type:   text-embedding   -->
+<!-- task:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
 <!-- {tag_key}: {tag_value} -->
@@ -92,6 +94,7 @@ Simple description.
 
 <!-- asset-path: /path/to/model.tar.gz -->
 <!-- module-type: text-embedding -->
+<!-- task: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
 <!-- license: %s -->
@@ -118,7 +121,9 @@ SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE = """# Module google/model/1
 One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- module-type: text-classification -->
+<!-- task: text-classification -->
 <!-- module-type: text-embedding -->
+<!-- task: text-embedding -->
 <!-- {tag_key_1}: {tag_value_1} -->
 <!-- {tag_key_2}: {tag_value_2} -->
 <!-- fine-tunable: true -->
@@ -150,6 +155,7 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type:   text-embedding   -->
+<!-- task:   text-embedding   -->
 """
 
 PLACEHOLDER_OPTIONAL_TAG_TEMPLATE = """# Placeholder google/text-embedding-model/1
@@ -157,6 +163,7 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type:   text-embedding   -->
+<!-- task:   text-embedding   -->
 <!-- {tag_key}: {tag_value} -->
 """
 
@@ -190,6 +197,7 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type: text-embedding -->
+<!-- task: text-embedding -->
 
 ## Overview
 """
@@ -199,6 +207,7 @@ Simple description spanning
 multiple lines.
 
 <!-- module-type: text-embedding -->
+<!-- task: text-embedding -->
 <!-- {tag_key}: {tag_value} -->
 
 ## Overview
@@ -283,6 +292,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
        <!-- asset-path: {self.model_path} -->
        <!-- module-type:   text-embedding   -->
+       <!-- task:   text-embedding   -->
        <!-- fine-tunable:true -->
        <!-- format: saved_model_2 -->
 
@@ -483,6 +493,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
       <!-- asset-path: /path/to/model.tar.gz -->
       <!-- module-type: text-embedding -->
+      <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: unsupported -->
       <!-- license: Apache-2.0 -->
@@ -504,6 +515,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
       <!-- asset-path: https://path/to/text-embedding-model/model2.tar.gz -->
       <!-- module-type: text-embedding -->
+      <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: saved_model_2 -->
 
@@ -518,8 +530,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(
       ("dataset", ["mnist", "wikipedia"]), ("language", ["en", "fr"]),
-      ("network-architecture", ["bert", "transformer"]),
-      ("module-type", ["text-classification", "text-embedding"]))
+      ("network-architecture", ["bert", "transformer"]))
   def test_markdown_with_allowed_duplicate_metadata(self, tag_key, tag_values):
     self.set_up_publisher_page("google")
     content = SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE.format(
@@ -569,6 +580,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     expected_metadata = {
         "asset-path": {self.model_path},
         "module-type": {"text-embedding"},
+        "task": {"text-embedding"},
         "fine-tunable": {"true"},
         "format": {"saved_model_2"},
     }
@@ -642,6 +654,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       One line description.
       <!-- asset-path: https://path/to/model.tar.gz -->
       <!-- module-type: text-embedding -->
+      <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: saved_model_2 -->
 
@@ -665,10 +678,19 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_module_type(self):
-    self.set_content(
-        "root/assets/docs/google/models/model/1.md",
-        SAVED_MODEL_OPTIONAL_TAG_TEMPLATE.format(
-            tag_key="module-type", tag_value="something-embedding"))
+    content = textwrap.dedent("""\
+      # Module google/model/1
+      Simple description spanning
+      multiple lines.
+
+      <!-- asset-path: /path/to/model.tar.gz -->
+      <!-- module-type: something-embedding -->
+      <!-- task: something-embedding -->
+      <!-- fine-tunable:true -->
+      <!-- format: saved_model_2 -->
+
+      # Overview""")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
     self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
@@ -769,7 +791,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
         r".*Expected 'task' tag to be \['text-embedding'\] "
-        r"but was \['text-classification'\]."):
+        r"but was \['text-classification', 'text-embedding'\]."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 

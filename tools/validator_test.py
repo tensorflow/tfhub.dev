@@ -69,7 +69,6 @@ Simple description spanning
 multiple lines.
 
 <!-- asset-path: %s -->
-<!-- module-type:   text-embedding   -->
 <!-- task:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
@@ -82,7 +81,6 @@ Simple description spanning
 multiple lines.
 
 <!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type:   text-embedding   -->
 <!-- task:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
@@ -93,7 +91,6 @@ SAVED_MODEL_LICENSE_TEMPLATE = """# Module google/model/1
 Simple description.
 
 <!-- asset-path: /path/to/model.tar.gz -->
-<!-- module-type: text-embedding -->
 <!-- task: text-embedding -->
 <!-- fine-tunable: true -->
 <!-- format: saved_model_2 -->
@@ -120,9 +117,7 @@ SAVED_MODEL_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK = """# Module google/text-embe
 SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE = """# Module google/model/1
 One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
-<!-- module-type: text-classification -->
 <!-- task: text-classification -->
-<!-- module-type: text-embedding -->
 <!-- task: text-embedding -->
 <!-- {tag_key_1}: {tag_value_1} -->
 <!-- {tag_key_2}: {tag_value_2} -->
@@ -137,7 +132,6 @@ Simple description spanning
 multiple lines.
 
 <!-- asset-path: %s -->
-<!-- module-type:   text-embedding   -->
 <!-- task:   text-embedding   -->
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
@@ -154,7 +148,6 @@ MINIMAL_PLACEHOLDER = """# Placeholder google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
-<!-- module-type:   text-embedding   -->
 <!-- task:   text-embedding   -->
 """
 
@@ -162,7 +155,6 @@ PLACEHOLDER_OPTIONAL_TAG_TEMPLATE = """# Placeholder google/text-embedding-model
 Simple description spanning
 multiple lines.
 
-<!-- module-type:   text-embedding   -->
 <!-- task:   text-embedding   -->
 <!-- {tag_key}: {tag_value} -->
 """
@@ -175,7 +167,6 @@ multiple lines.
 <!-- fine-tunable:true -->
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
-<!-- module-type:   text-embedding   -->
 <!-- task:   text-embedding   -->
 <!-- network-architecture: bert -->
 <!-- license: Apache-2.0 -->
@@ -196,7 +187,6 @@ MINIMAL_COLLECTION = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
 
-<!-- module-type: text-embedding -->
 <!-- task: text-embedding -->
 
 ## Overview
@@ -206,7 +196,6 @@ COLLECTION_OPTIONAL_TAG_TEMPLATE = """# Collection google/model/1
 Simple description spanning
 multiple lines.
 
-<!-- module-type: text-embedding -->
 <!-- task: text-embedding -->
 <!-- {tag_key}: {tag_value} -->
 
@@ -217,7 +206,6 @@ MAXIMAL_COLLECTION = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
 
-<!-- module-type: text-embedding -->
 <!-- task: text-embedding -->
 <!-- dataset: mnist -->
 <!-- language: en -->
@@ -291,7 +279,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
        multiple lines.
 
        <!-- asset-path: {self.model_path} -->
-       <!-- module-type:   text-embedding   -->
        <!-- task:   text-embedding   -->
        <!-- fine-tunable:true -->
        <!-- format: saved_model_2 -->
@@ -482,7 +469,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
                      content)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                ".*missing.*fine-tunable.*module-type.*"):
+                                ".*missing.*fine-tunable.*task.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
@@ -492,7 +479,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       Simple description.
 
       <!-- asset-path: /path/to/model.tar.gz -->
-      <!-- module-type: text-embedding -->
       <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: unsupported -->
@@ -514,7 +500,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       One line description.
       <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
       <!-- asset-path: https://path/to/text-embedding-model/model2.tar.gz -->
-      <!-- module-type: text-embedding -->
       <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: saved_model_2 -->
@@ -547,7 +532,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     content = textwrap.dedent("""\
       # Module google/text-embedding-model/1
       One line description.
-      <!-- module-type: text-embedding -->
 
       This should not be here.
       <!-- format: saved_model_2 -->
@@ -579,7 +563,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
                      documentation_parser.parsed_description)
     expected_metadata = {
         "asset-path": {self.model_path},
-        "module-type": {"text-embedding"},
         "task": {"text-embedding"},
         "fine-tunable": {"true"},
         "format": {"saved_model_2"},
@@ -653,7 +636,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       # Module google/text-embedding-model/1
       One line description.
       <!-- asset-path: https://path/to/model.tar.gz -->
-      <!-- module-type: text-embedding -->
       <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: saved_model_2 -->
@@ -684,7 +666,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       multiple lines.
 
       <!-- asset-path: /path/to/model.tar.gz -->
-      <!-- module-type: something-embedding -->
       <!-- task: something-embedding -->
       <!-- fine-tunable:true -->
       <!-- format: saved_model_2 -->
@@ -778,22 +759,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
-
-  @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
-                            PLACEHOLDER_OPTIONAL_TAG_TEMPLATE,
-                            COLLECTION_OPTIONAL_TAG_TEMPLATE)
-  def test_markdown_with_invalid_task_tag(self, template):
-    self.set_up_publisher_page("google")
-    self.set_content(
-        "root/assets/docs/google/models/model/1.md",
-        template.format(tag_key="task", tag_value="text-classification"))
-
-    with self.assertRaisesRegex(
-        validator.MarkdownDocumentationError,
-        r".*Expected 'task' tag to be \['text-embedding'\] "
-        r"but was \['text-classification', 'text-embedding'\]."):
-      validator.validate_documentation_dir(
-          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_model_with_invalid_filenames_fails_smoke_test(self):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",

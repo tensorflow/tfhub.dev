@@ -90,8 +90,7 @@ COLLECTION_HANDLE_PATTERN = (
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 
 # These metadata tags can be set to more than one value.
-REPEATED_TAG_KEYS = ("dataset", "language", "module-type", "task",
-                     "network-architecture")
+REPEATED_TAG_KEYS = ("dataset", "language", "task", "network-architecture")
 
 # Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
 SAVED_MODEL_FORMATS = ("hub", "saved_model", "saved_model_2")
@@ -252,12 +251,12 @@ class ParsingPolicy:
 
   def _assert_correct_module_types(
       self, metadata: Mapping[str, AbstractSet[str]]) -> None:
-    if "module-type" in metadata:
+    if "task" in metadata:
       allowed_prefixes = ["image-", "text-", "audio-", "video-"]
-      for value in metadata["module-type"]:
+      for value in metadata["task"]:
         if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
           raise MarkdownDocumentationError(
-              "The 'module-type' metadata has to start with any of 'image-'"
+              "The 'task' metadata has to start with any of 'image-'"
               ", 'text', 'audio-', 'video-', but is: '{value}'")
 
   def _assert_correct_tag_values(
@@ -290,19 +289,6 @@ class ParsingPolicy:
             f"{sorted(unsupported_values)}. Please add them to "
             f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
 
-  def _assert_task_equals_module_type(
-      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
-    """Asserts that if a task tag is given, it equals the module-type tag."""
-    if "task" not in metadata:
-      return
-
-    actual_value = sorted(metadata["task"])
-    expected_value = sorted(metadata.get("module-type", {}))
-    if actual_value != expected_value:
-      raise MarkdownDocumentationError(
-          f"Expected 'task' tag to be {expected_value!r} but was "
-          f"{actual_value!r}.")
-
   def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
                               yaml_parser: yaml_parser_lib.YamlParser) -> None:
     """Asserts that correct metadata is present."""
@@ -311,7 +297,6 @@ class ParsingPolicy:
     self._assert_no_duplicate_metadata(metadata)
     self._assert_correct_module_types(metadata)
     self._assert_correct_tag_values(metadata, yaml_parser)
-    self._assert_task_equals_module_type(metadata)
 
   def assert_correct_asset_path(self, validation_config: ValidationConfig,
                                 metadata: Mapping[str, AbstractSet[str]],
@@ -380,7 +365,7 @@ class CollectionParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["module-type", "task"],
+        required_metadata=["task"],
         optional_metadata=[
             "dataset", "language", "network-architecture",
         ])
@@ -399,7 +384,7 @@ class PlaceholderParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["module-type", "task"],
+        required_metadata=["task"],
         optional_metadata=[
             "dataset", "fine-tunable", "interactive-model-name", "language",
             "license", "network-architecture"
@@ -420,7 +405,7 @@ class SavedModelParsingPolicy(ParsingPolicy):
         model_name,
         model_version,
         required_metadata=[
-            "asset-path", "module-type", "fine-tunable", "format", "task"
+            "asset-path", "fine-tunable", "format", "task"
         ],
         optional_metadata=[
             "dataset", "interactive-model-name", "language", "license",

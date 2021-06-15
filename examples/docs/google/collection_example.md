@@ -1,7 +1,6 @@
 # Collection google/example-collection/1
 Test collection.
 
-<!-- module-type: text-embedding -->
 <!-- task: text-embedding -->
 <!-- network-architecture: dan -->
 <!-- network-architecture: transformer -->

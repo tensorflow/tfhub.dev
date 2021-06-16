@@ -15,33 +15,17 @@
 """Library for validating tag definition files written in YAML."""
 
 
+import abc
 import os
-from typing import AbstractSet, Dict, List
+from typing import AbstractSet, Any, List, Mapping, Optional, Type, TypeVar
+
 from absl import logging
 import ruamel.yaml.nodes as nodes
 import filesystem_utils
 import yaml
 
-VALUES_KEY = "values"
-REQUIRED_TOP_LEVEL_KEYS = frozenset([VALUES_KEY])
-DEFAULT_REQUIRED_ITEM_LEVEL_KEYS = ["id", "display_name"]
-DEFAULT_OPTIONAL_ITEM_LEVEL_KEYS = frozenset(
-    ["url", "description", "aggregation_rule"])
-TAG_TO_ADDITIONAL_REQUIRED_KEYS = {"task.yaml": ["domains"]}
-YAML_STR_TAG = "tag:yaml.org,2002:str"  # https://yaml.org/type/str.html
-
-
-def get_required_item_level_keys(file_name: str) -> AbstractSet[str]:
-  """Returns the required keys of a YAML item for a file."""
-  return set(DEFAULT_REQUIRED_ITEM_LEVEL_KEYS +
-             TAG_TO_ADDITIONAL_REQUIRED_KEYS.get(file_name, []))
-
-
-def get_supported_item_level_keys(file_name: str) -> AbstractSet[str]:
-  """Returns union of required and optional keys of a YAML item for a file."""
-  return set.union(
-      get_required_item_level_keys(file_name),
-      set(DEFAULT_OPTIONAL_ITEM_LEVEL_KEYS))
+TagDefinitionFileParserT = TypeVar(
+    "TagDefinitionFileParserT", bound="TagDefinitionFileParser")
 
 
 class TagDefinitionError(Exception):
@@ -50,6 +34,8 @@ class TagDefinitionError(Exception):
 
 class UniqueStringKeyLoader(yaml.SafeLoader):
   """YAML loader that only allows unique keys and string values."""
+
+  YAML_STR_TAG = "tag:yaml.org,2002:str"  # https://yaml.org/type/str.html
 
   def construct_scalar(self, node: nodes.ScalarNode) -> nodes.ScalarNode:
     """Returns ScalarNode that contains only string values.
@@ -62,14 +48,14 @@ class UniqueStringKeyLoader(yaml.SafeLoader):
     Raises:
       TagDefinitionError: if a non-string value is passed.
     """
-    if node.tag != YAML_STR_TAG:
+    if node.tag != self.YAML_STR_TAG:
       raise TagDefinitionError(f"Found non-string value: {node}")
     return super().construct_scalar(node)
 
   def construct_mapping(
       self,
       node: nodes.ScalarNode,
-      deep: bool = False) -> Dict[nodes.ScalarNode, nodes.ScalarNode]:
+      deep: bool = False) -> Mapping[nodes.ScalarNode, nodes.ScalarNode]:
     """Overrides default mapper with a version that detects duplicate keys.
 
     Args:
@@ -77,7 +63,7 @@ class UniqueStringKeyLoader(yaml.SafeLoader):
       deep: Whether to reverse the order of constructing objects.
 
     Returns:
-      mapping: Dict mapping from key node to value node.
+      mapping: Mapping from key node to value node.
 
     Raises:
       TagDefinitionError: if duplicate keys are found.
@@ -92,126 +78,272 @@ class UniqueStringKeyLoader(yaml.SafeLoader):
     return mapping
 
 
-class TagDefinitionFileParser(object):
-  """Class used for parsing and validating a tag definition YAML file.
+class TagDefinitionFileParser(metaclass=abc.ABCMeta):
+  """Abstract class to parse and validate a YAML file.
 
-  An example of a valid tag file (i.e. dataset.yml) looks like this:
+  Attributes:
+    _file_path: absolute path to the YAML file that should be validated.
+  """
+
+  def __init__(self, file_path: str) -> None:
+    self._file_path = file_path
+
+  @classmethod
+  def create_tag_parser(cls: Type[TagDefinitionFileParserT],
+                        file_path: str) -> TagDefinitionFileParserT:
+    """Returns the correct parser instance for the given YAML file.
+
+    Args:
+      file_path: absolute path to the YAML file that should be validated.
+
+    Returns:
+      EnumerableTagParser or TaskTagParser instance for validating the file.
+
+    Raises:
+      TagDefinitionError: if no parser is associated to the YAML file.
+    """
+    file_name = os.path.basename(file_path)
+    if file_name in {
+        "dataset.yaml", "language.yaml", "network_architecture.yaml"
+    }:
+      return EnumerableTagParser(file_path)
+    elif file_name == "task.yaml":
+      return TaskTagParser(file_path)
+    elif file_name == "license.yaml":
+      return LicenseTagParser(file_path)
+    else:
+      raise TagDefinitionError(f"No parser is registered for {file_name}.")
+
+  @property
+  @abc.abstractmethod
+  def required_top_keys(self) -> AbstractSet[str]:
+    """Set of required top-level keys in a YAML file."""
+
+  @abc.abstractmethod
+  def _validate_yaml_config(self, loaded_yaml: Mapping[str, Any]) -> None:
+    """Parses a YAML file and checks that it is supported.
+
+    Args:
+      loaded_yaml: Loaded YAML, which is a result of yaml.load().
+    """
+
+  def validate(self):
+    """Validates the tag definition file.
+
+    Raises:
+      TagDefinitionError:
+        - the file cannot be parsed as YAML.
+        - the file contains duplicate keys.
+        - the file contains non-string values.
+    """
+    file_content = filesystem_utils.get_content(self._file_path)
+    loaded_yaml = yaml.load(file_content, Loader=UniqueStringKeyLoader)
+    if loaded_yaml is None:
+      raise TagDefinitionError("Cannot parse file to YAML.")
+    self._validate_yaml_config(loaded_yaml)
+
+
+class EnumerableTagParser(TagDefinitionFileParser):
+  """Class used for validating an enumerable tag definition YAML file.
+
+  An example of a valid enumerable tag file (i.e. dataset.yaml) looks like this:
 
   values:                  # No other top-level keys apart from 'values' allowed
     - id: mnist            # Required
       display_name: MNIST  # Required
-      url: http://yann.lecun.com/exdb/mnist/ # Optional
-      description: Hand-written digits       # Optional
-      aggregation_rule: UNION                # Optional
     - id: "no"  # Quote special keywords since only strings are allowed
       display_name: Norwegian census dataset
 
+  Enumerable tag definition files contain a list of all items that tag can be
+  set to. A tag file thus has top-level keys (i.e. 'values') and item-level keys
+  (i.e. 'id', 'display_name').
   """
 
-  def __init__(self, file_path: str):
-    self._file_path = file_path
+  VALUES_KEY = "values"
+  ID_KEY = "id"
+  DISPLAY_NAME_KEY = "display_name"
 
-  def assert_valid_top_level_keys(self, loaded_yaml: Dict[str, str]):
-    """The top-most tag keys should be valid.
+  def __init__(self,
+               file_path: str,
+               required_top_keys: Optional[AbstractSet[str]] = None,
+               required_item_keys: Optional[AbstractSet[str]] = None,
+               optional_item_keys: Optional[AbstractSet[str]] = None) -> None:
+    super().__init__(file_path)
+    if required_top_keys is None:
+      self._required_top_keys = {self.VALUES_KEY}
+    else:
+      self._required_top_keys = required_top_keys
+    if required_item_keys is None:
+      self._required_item_keys = {self.ID_KEY, self.DISPLAY_NAME_KEY}
+    else:
+      self._required_item_keys = required_item_keys
+    if optional_item_keys is None:
+      self._optional_item_keys = set()
+    else:
+      self._optional_item_keys = optional_item_keys
+
+  @property
+  def required_top_keys(self) -> AbstractSet[str]:
+    """The set of required keys at the root of the YAML file."""
+    return self._required_top_keys
+
+  @property
+  def required_item_keys(self) -> AbstractSet[str]:
+    """The set of required keys at the item-level of the YAML file."""
+    return self._required_item_keys
+
+  @property
+  def optional_item_keys(self) -> AbstractSet[str]:
+    """The set of optional keys at the item-level of the YAML file."""
+    return self._optional_item_keys
+
+  @property
+  def supported_item_keys(self) -> AbstractSet[str]:
+    """The union of required and optional keys at the item-level."""
+    return set.union(self.required_item_keys, self.optional_item_keys)
+
+  def _assert_valid_top_level_keys(self, loaded_yaml: Mapping[str,
+                                                              str]) -> None:
+    """Ensures that the top-most tag keys are valid.
 
     Args:
       loaded_yaml: Loaded YAML, which is a result of yaml.load().
 
     Raises:
       TagDefinitionError:
-        - if the top-level keys are unequal to REQUIRED_TOP_LEVEL_KEYS.
+        - if the top-level keys are unequal to the required top-level keys.
     """
-    if loaded_yaml.keys() != REQUIRED_TOP_LEVEL_KEYS:
+    if loaded_yaml.keys() != self.required_top_keys:
       raise TagDefinitionError(
-          f"Expected top-level keys {set(REQUIRED_TOP_LEVEL_KEYS)} "
+          f"Expected top-level keys {self.required_top_keys} "
           f"but got {sorted(loaded_yaml.keys())}.")
 
-  def assert_valid_item_level_keys(self, file_name: str,
-                                   item: Dict[str, str]) -> None:
+  def _assert_valid_item_level_keys(self, item: Mapping[str, str]) -> None:
     """Validates the keys of the given item.
 
     Args:
-      file_name: Name of the YAML file that is being validated e.g. 'task.yaml'.
-      item: Dict representing a tag item e.g. {id=mnist, display_name=MNIST}.
+      item: Mapping representing a tag item e.g. {id=mnist, display_name=MNIST}.
 
     Raises:
       TagDefinitionError:
-        - if not all keys specified in REQUIRED_ITEM_LEVEL_KEYS are set.
-        - if keys different from SUPPORTED_ITEM_LEVEL_KEYS are set.
+        - if not all required item-level keys are set.
+        - if keys are different from the supported item-level keys.
     """
-    missing_required_field = get_required_item_level_keys(
-        file_name) - item.keys()
+    missing_required_field = self.required_item_keys - set(item.keys())
     if missing_required_field:
       raise TagDefinitionError(
           f"Missing required item-level keys: {missing_required_field}.")
-    unsupported_field = item.keys() - get_supported_item_level_keys(file_name)
+    unsupported_field = set(item.keys()) - self.supported_item_keys
     if unsupported_field:
       raise TagDefinitionError(
           f"Unsupported item-level keys: {unsupported_field}.")
 
-  def parse_yaml_file(self, file_content: str) -> None:
+  def _validate_yaml_config(self, loaded_yaml: Mapping[str, Any]) -> None:
     """Parses a YAML file and checks that it is supported.
 
     Args:
-      file_content: file content that should be parsed and validated.
-
-    Raises:
-      TagDefinitionError:
-        - if `file_content` cannot be parsed as YAML.
-        - if `assert_valid_top_level_keys` or `assert_valid_item_level_keys`
-          fail.
-    """
-    loaded_yaml = yaml.load(file_content, Loader=UniqueStringKeyLoader)
-    file_name = os.path.basename(self._file_path)
-    if loaded_yaml is None:
-      raise TagDefinitionError("Cannot parse file to YAML.")
-    self.assert_valid_top_level_keys(loaded_yaml)
-    for item in loaded_yaml[VALUES_KEY]:
-      self.assert_valid_item_level_keys(file_name, item)
-
-  def validate(self):
-    """Validate one tag definition file.
+      loaded_yaml: Loaded YAML, which is a result of yaml.load().
 
     Raises:
       TagDefinitionError if
-        - the file cannot be parses as YAML.
-        - the file contains duplicate keys.
-        - the file contains non-string values.
-        - the top-level keys are unequal to REQUIRED_TOP_LEVEL_KEYS.
-        - an item does not at least specify the keys id, display_name.
-        - an item contains a key that is not in SUPPORTED_ITEM_LEVEL_KEYS.
+        - if the top-level keys are unequal to the required top-level keys.
+        - if not all required item-level keys are set.
+        - if keys are different from the supported item-level keys.
     """
-    file_content = filesystem_utils.get_content(self._file_path)
-    self.parse_yaml_file(file_content)
+
+    self._assert_valid_top_level_keys(loaded_yaml)
+    for item in loaded_yaml[self.VALUES_KEY]:
+      self._assert_valid_item_level_keys(item)
 
 
-def validate_tag_files(file_paths: List[str]) -> Dict[str, TagDefinitionError]:
+class LicenseTagParser(EnumerableTagParser):
+  """Class for parsing and validating license.yaml.
+
+  On an item-level, this tag requires to set the 'id' and 'display_name' fields
+  while it optionally allows to set the 'url' field. An example of a valid file
+  looks like this:
+
+  values:
+    - id: apache-2.0
+      display_name: Apache-2.0
+      url: https://opensource.org/licenses/Apache-2.0  # Optional
+  """
+
+  URL_KEY = "url"
+
+  def __init__(self, file_path: str) -> None:
+    super().__init__(file_path, optional_item_keys={self.URL_KEY})
+
+
+class TaskTagParser(EnumerableTagParser):
+  """Class for parsing and validating task.yaml.
+
+  Unlike other enumerable tag files, this tag requires to also set the 'domains'
+  field at the item-level. An example of a valid file looks like this:
+
+  values:
+    - id: image-detection
+      display_name: Image detection
+      domains:
+        - image
+  """
+
+  DOMAINS_KEY = "domains"
+
+  def __init__(self, file_path: str) -> None:
+    super().__init__(
+        file_path,
+        required_item_keys={
+            self.ID_KEY, self.DISPLAY_NAME_KEY, self.DOMAINS_KEY
+        })
+
+
+def validate_tag_files(
+    file_paths: List[str]) -> Mapping[str, TagDefinitionError]:
   """Validate all tag definition files at the given paths.
 
   Args:
     file_paths: List of absolute paths to the YAML files.
 
   Returns:
-    file_to_error: Dict mapping from file path to occuring error.
+    file_to_error: Mapping from file path to occuring error.
+
+    Raises:
+      TagDefinitionError if:
+        - a file cannot be parsed as YAML.
+        - a YAML file contains duplicate keys.
+        - a YAML file contains non-string values.
+        - a YAML file does not contain the required top-level keys.
+        - a YAML file does not set all required item-level keys.
+        - a YAML file sets unsupported item-level keys.
   """
   file_to_error = dict()
   for file_path in file_paths:
     logging.info("Validating %s.", file_path)
     try:
-      TagDefinitionFileParser(file_path).validate()
+      TagDefinitionFileParser.create_tag_parser(file_path).validate()
     except TagDefinitionError as e:
       file_to_error[file_path] = e
   return file_to_error
 
 
-def validate_tag_dir(directory: str) -> Dict[str, TagDefinitionError]:
+def validate_tag_dir(directory: str) -> Mapping[str, TagDefinitionError]:
   """Validate all tag definition files in the given directory.
 
   Args:
     directory: Directory path over which should be walked to find all tag files.
 
   Returns:
-    file_to_error: Dict mapping from file path to occuring error.
+    file_to_error: Mapping from file path to occuring error.
+
+    Raises:
+      TagDefinitionError if:
+        - a file cannot be parsed as YAML.
+        - a YAML file contains duplicate keys.
+        - a YAML file contains non-string values.
+        - a YAML file does not contain the required top-level keys.
+        - a YAML file does not set all required item-level keys.
+        - a YAML file sets unsupported item-level keys.
   """
   file_paths = list(filesystem_utils.recursive_list_dir(directory))
   return validate_tag_files(file_paths)

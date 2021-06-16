@@ -15,6 +15,7 @@
 """Tests for tensorflow_hub.tfhub_dev.tools.tags_validator."""
 
 import os
+import textwrap
 
 from absl.testing import parameterized
 import tensorflow as tf
@@ -60,7 +61,7 @@ values:
     display_name: Norwegian data"""
 
 
-class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
+class TagDefinitionFileParserTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
@@ -84,81 +85,144 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       output_file.write(content)
 
   @parameterized.parameters(
-      ("dataset.yaml", ("id", "display_name")),
-      ("language.yaml", ("id", "display_name")),
-      ("network_architecture.yaml", ("id", "display_name")),
-      ("task.yaml", ("id", "display_name", "domains")))
-  def test_get_required_tem_level_keys(self, file_name, expected_keys):
-    self.assertCountEqual(
-        tags_validator.get_required_item_level_keys(file_name), expected_keys)
+      ("language.yaml", tags_validator.EnumerableTagParser),
+      ("dataset.yaml", tags_validator.EnumerableTagParser),
+      ("network_architecture.yaml", tags_validator.EnumerableTagParser),
+      ("task.yaml", tags_validator.TaskTagParser),
+      ("license.yaml", tags_validator.LicenseTagParser))
+  def test_create_tag_parser(self, yaml_name, expected_type):
+    self.assertIsInstance(
+        tags_validator.TagDefinitionFileParser.create_tag_parser(
+            f"tags/{yaml_name}"), expected_type)
 
-  @parameterized.parameters(
-      ("dataset.yaml",
-       ("id", "display_name", "url", "description", "aggregation_rule")),
-      ("language.yaml",
-       ("id", "display_name", "url", "description", "aggregation_rule")),
-      ("network_architecture.yaml",
-       ("id", "display_name", "url", "description", "aggregation_rule")),
-      ("task.yaml", ("id", "display_name", "url", "description",
-                     "aggregation_rule", "domains")))
-  def test_get_supported_item_level_keys(self, file_name, expected_keys):
-    self.assertCountEqual(
-        tags_validator.get_supported_item_level_keys(file_name), expected_keys)
+  def test_create_tag_parser_with_unknown_yaml_file(self):
+    self.set_content("tags/unknown.yaml", "")
 
-  def test_parse_good_files(self):
-    self.set_content("tags/tag.yml", MINIMAL_TAGS_FILE)
-    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
-
-  def test_fail_on_invalid_yaml(self):
-    self.set_content("tags/1.md", INVALID_FILE)
-    self.assert_validation_returns_correct_dict(
-        {f"{self.tmp_dir.full_path}/tags/1.md": "Cannot parse file to YAML."})
-
-  def test_extra_top_level_field(self):
-    self.set_content("tags/extra_top_level.yml", EXTRA_TOP_LEVEL_FIELD)
     self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/extra_top_level.yml":
-            "Expected top-level keys {'values'} but got ['name', 'values']."
+        f"{self.tmp_dir.full_path}/tags/unknown.yaml":
+            "No parser is registered for unknown.yaml."
     })
 
-  def test_wrong_top_level_field(self):
-    self.set_content("tags/wrong_top_level.yml", WRONG_TOP_LEVEL_FIELD)
+  @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
+                            "network_architecture.yaml", "license.yaml")
+  def test_fail_on_invalid_yaml(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", INVALID_FILE)
+
     self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/wrong_top_level.yml":
-            "Expected top-level keys {'values'} but got ['items']."
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Cannot parse file to YAML."
     })
 
-  def test_missing_required_item_level_field(self):
-    self.set_content("tags/missing_item_level.yml",
-                     MISSING_REQUIRED_ITEM_LEVEL_FIELD)
+  @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
+                            "network_architecture.yaml", "license.yaml")
+  def test_duplicate_item_level_field(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", WRONG_DUPLICATED_FIELD)
+
     self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/missing_item_level.yml":
-            "Missing required item-level keys: {'display_name'}."
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}": "Found duplicate key: id"
     })
 
-  def test_wrong_item_level_field(self):
-    self.set_content("tags/wrong_item_level.yml", WRONG_ITEM_LEVEL_FIELD)
-    self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/wrong_item_level.yml":
-            "Unsupported item-level keys: {'extra_field'}."
-    })
+  @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
+                            "network_architecture.yaml", "license.yaml")
+  def test_wrong_item_level_field_type(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", WRONG_ITEM_LEVEL_FIELD_TYPE)
 
-  def test_duplicate_item_level_field(self):
-    self.set_content("tags/duplicate_item_level.yml", WRONG_DUPLICATED_FIELD)
     self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/duplicate_item_level.yml":
-            "Found duplicate key: id"
-    })
-
-  def test_wrong_item_level_field_type(self):
-    self.set_content("tags/wrong_item_field_type.yml",
-                     WRONG_ITEM_LEVEL_FIELD_TYPE)
-    self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/wrong_item_field_type.yml":
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
             "Found non-string value: "
             "ScalarNode(tag='tag:yaml.org,2002:bool', value='no')"
     })
 
+
+class EnumerableTagParserTest(TagDefinitionFileParserTest):
+
+  @parameterized.parameters("dataset.yaml", "language.yaml",
+                            "network_architecture.yaml")
+  def test_parse_good_enumerable_tag_files(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", MINIMAL_TAGS_FILE)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+  @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
+                            "network_architecture.yaml")
+  def test_extra_top_level_field(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", EXTRA_TOP_LEVEL_FIELD)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Expected top-level keys {'values'} but got ['name', 'values']."
+    })
+
+  @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
+                            "network_architecture.yaml")
+  def test_wrong_top_level_field(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", WRONG_TOP_LEVEL_FIELD)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Expected top-level keys {'values'} but got ['items']."
+    })
+
+  @parameterized.parameters(("dataset.yaml", {"display_name"}),
+                            ("language.yaml", {"display_name"}),
+                            ("network_architecture.yaml", {"display_name"}),
+                            ("task.yaml", {"display_name", "domains"}))
+  def test_missing_required_item_level_field(self, yaml_name, expected_keys):
+    self.set_content(f"tags/{yaml_name}", MISSING_REQUIRED_ITEM_LEVEL_FIELD)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            f"Missing required item-level keys: {expected_keys}."
+    })
+
+  @parameterized.parameters("dataset.yaml", "language.yaml",
+                            "network_architecture.yaml")
+  def test_wrong_item_level_field(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", WRONG_ITEM_LEVEL_FIELD)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Unsupported item-level keys: {'extra_field'}."
+    })
+
+
+class TaskFileParserTest(TagDefinitionFileParserTest):
+
+  def test_parse_good_task_yaml_file(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: image-detection
+          display_name: Image detection
+          domains:
+            - image
+    """)
+    self.set_content("tags/task.yaml", content)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+
+class LicenseFileParserTest(TagDefinitionFileParserTest):
+
+  def test_parse_license_with_all_fields(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: apache-2.0
+          display_name: Apache-2.0
+          url: https://opensource.org/licenses/Apache-2.0
+    """)
+    self.set_content("tags/license.yaml", content)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+  def test_parse_license_without_url_field(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: apache-2.0
+          display_name: Apache-2.0
+    """)
+    self.set_content("tags/license.yaml", content)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
 
 if __name__ == "__main__":
   tf.test.main()

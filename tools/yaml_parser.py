@@ -95,7 +95,7 @@ class TagValuesValidator:
     Raises:
       ValueError: if the `id` field of an item is invalid.
     """
-    id_pattern = r"[a-z-\d]+"
+    id_pattern = r"[a-z-\d\.]+"
     for item in self.values:
       if re.fullmatch(id_pattern, item.id) is None:
         raise ValueError(f"The value of an id must match {id_pattern} but was "

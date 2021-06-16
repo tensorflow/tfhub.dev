@@ -155,7 +155,7 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
         "but was {'id': 'bert'}."):
       yaml_parser.TagValuesValidator.from_yaml(yaml_config)
 
-  @parameterized.parameters("mnist", "mobilenetv2", "mobilenet-v2")
+  @parameterized.parameters("mnist", "mobilenetv2", "mobilenet-v2", "squad-2.0")
   def test_valid_item_id(self, id_value):
     yaml_content = textwrap.dedent("""\
       values:
@@ -170,7 +170,7 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
         tag_values_validator.values,
         [yaml_parser.TagValue(id=id_value, display_name="The name")])
 
-  @parameterized.parameters("imageNet", "squad-2.0", "medline/pubmed")
+  @parameterized.parameters("imageNet", "medline/pubmed")
   def test_invalid_item_id(self, id_value):
     yaml_content = textwrap.dedent("""\
       values:
@@ -181,7 +181,7 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
 
     with self.assertRaisesWithLiteralMatch(
         ValueError,
-        fr"The value of an id must match [a-z-\d]+ but was {id_value}."):
+        fr"The value of an id must match [a-z-\d\.]+ but was {id_value}."):
       tag_values_validator.validate()
 
   @parameterized.parameters(

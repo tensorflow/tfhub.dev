@@ -27,7 +27,8 @@ TAG_TO_YAML_MAP = collections.OrderedDict({
     "dataset": "tags/dataset.yaml",
     "language": "tags/language.yaml",
     "task": "tags/task.yaml",
-    "network-architecture": "tags/network_architecture.yaml"
+    "network-architecture": "tags/network_architecture.yaml",
+    "license": "tags/license.yaml"
 })
 
 # Field names in the used YAML config files.

@@ -44,6 +44,12 @@ values:
   - id: fr
     display_name: French"""
 
+LICENSE_YAML = """
+values:
+  - id: apache-2.0
+    display_name: Apache-2.0
+    url: https://opensource.org/licenses/Apache-2.0"""
+
 TASK_YAML = """
 values:
   - id: text-embedding
@@ -59,6 +65,7 @@ TAG_FILE_NAME_TO_CONTENT_MAP = {
     "network_architecture.yaml": ARCHITECTURE_YAML,
     "dataset.yaml": DATASET_YAML,
     "language.yaml": LANGUAGE_YAML,
+    "license.yaml": LICENSE_YAML,
     "task.yaml": TASK_YAML
 }
 
@@ -139,7 +146,7 @@ multiple lines.
 <!-- interactive-model-name: vision -->
 <!-- language: en -->
 <!-- network-architecture: bert -->
-<!-- license: Apache-2.0 -->
+<!-- license: apache-2.0 -->
 
 ## Overview
 """
@@ -169,7 +176,7 @@ multiple lines.
 <!-- language: en -->
 <!-- task:   text-embedding   -->
 <!-- network-architecture: bert -->
-<!-- license: Apache-2.0 -->
+<!-- license: apache-2.0 -->
 """
 
 LITE_OPTIONAL_TAG_TEMPLATE = """# Lite google/model/lite/1
@@ -482,7 +489,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- task: text-embedding -->
       <!-- fine-tunable: true -->
       <!-- format: unsupported -->
-      <!-- license: Apache-2.0 -->
+      <!-- license: apache-2.0 -->
 
       ## Overview""")
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
@@ -620,14 +627,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           root_dir=self.tmp_root_dir,
           files_to_validate=["google/models/text-embedding-model/1.md"])
 
-  def test_markdown_with_allowed_license(self):
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     SAVED_MODEL_LICENSE_TEMPLATE % "BSD-3-Clause")
-    self.set_up_publisher_page("google")
-
-    validator.validate_documentation_dir(
-        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
-
   @parameterized.parameters(
       ("Open Colab notebook", "https://colab.research.google.com"),
       ("Open Demo", "https://teachablemachine.withgoogle.com/train/pose"))
@@ -648,16 +647,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
-
-  def test_markdown_with_unknown_license(self):
-    self.set_content("root/assets/docs/google/models/model/1.md",
-                     SAVED_MODEL_LICENSE_TEMPLATE % "my_license")
-    self.set_up_publisher_page("google")
-
-    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                ".*specify a license id from list.*"):
-      validator.validate_documentation_dir(
-          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_module_type(self):
     content = textwrap.dedent("""\
@@ -709,7 +698,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(
       ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
-      ("network-architecture", "n/a", "network_architecture"))
+      ("network-architecture", "n/a", "network_architecture"),
+      ("license", "my_license", "license"))
   def test_saved_model_markdown_with_unsupported_tag_value(
       self, tag_key, tag_value, yaml_file_name):
     self.set_up_publisher_page("google")
@@ -744,7 +734,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(
       ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
-      ("network-architecture", "n/a", "network_architecture"))
+      ("network-architecture", "n/a", "network_architecture"),
+      ("license", "my_license", "license"))
   def test_placeholder_markdown_with_unsupported_tag_value(
       self, tag_key, tag_value, yaml_file_name):
     self.set_up_publisher_page("google")

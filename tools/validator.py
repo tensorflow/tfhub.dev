@@ -89,8 +89,20 @@ COLLECTION_HANDLE_PATTERN = (
 # are stripped.
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 
+# Dict keys that map to the specified metadata values of the Markdown files.
+ARCHITECTURE_KEY = "network-architecture"
+ASSET_PATH_KEY = "asset-path"
+DATASET_KEY = "dataset"
+FINE_TUNABLE_KEY = "fine-tunable"
+FORMAT_KEY = "format"
+LANGUAGE_KEY = "language"
+LICENSE_KEY = "license"
+PARENT_MODEL_KEY = "parent-model"
+TASK_KEY = "task"
+VISUALIZER_KEY = "interactive-model-name"
+
 # These metadata tags can be set to more than one value.
-REPEATED_TAG_KEYS = ("dataset", "language", "task", "network-architecture")
+REPEATED_TAG_KEYS = (DATASET_KEY, LANGUAGE_KEY, TASK_KEY, ARCHITECTURE_KEY)
 
 # Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
 SAVED_MODEL_FORMATS = ("hub", "saved_model", "saved_model_2")
@@ -106,9 +118,6 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
 
 TARFILE_SUFFIX = ".tar.gz"
 TFLITE_SUFFIX = ".tflite"
-
-# Dict key that maps to the specified asset-path of the Markdown file.
-ASSET_PATH_KEY = "asset-path"
 
 
 class MarkdownDocumentationError(Exception):
@@ -251,9 +260,9 @@ class ParsingPolicy:
 
   def _assert_correct_module_types(
       self, metadata: Mapping[str, AbstractSet[str]]) -> None:
-    if "task" in metadata:
+    if TASK_KEY in metadata:
       allowed_prefixes = ["image-", "text-", "audio-", "video-"]
-      for value in metadata["task"]:
+      for value in metadata[TASK_KEY]:
         if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
           raise MarkdownDocumentationError(
               "The 'task' metadata has to start with any of 'image-'"
@@ -365,9 +374,9 @@ class CollectionParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["task"],
+        required_metadata=[TASK_KEY],
         optional_metadata=[
-            "dataset", "language", "network-architecture",
+            DATASET_KEY, LANGUAGE_KEY, ARCHITECTURE_KEY,
         ])
 
   @property
@@ -384,10 +393,10 @@ class PlaceholderParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["task"],
+        required_metadata=[TASK_KEY],
         optional_metadata=[
-            "dataset", "fine-tunable", "interactive-model-name", "language",
-            "license", "network-architecture"
+            DATASET_KEY, FINE_TUNABLE_KEY, VISUALIZER_KEY, LANGUAGE_KEY,
+            LICENSE_KEY, ARCHITECTURE_KEY
         ])
 
   @property
@@ -405,11 +414,11 @@ class SavedModelParsingPolicy(ParsingPolicy):
         model_name,
         model_version,
         required_metadata=[
-            "asset-path", "fine-tunable", "format", "task"
+            ASSET_PATH_KEY, FINE_TUNABLE_KEY, FORMAT_KEY, TASK_KEY
         ],
         optional_metadata=[
-            "dataset", "interactive-model-name", "language", "license",
-            "network-architecture"
+            DATASET_KEY, VISUALIZER_KEY, LANGUAGE_KEY, LICENSE_KEY,
+            ARCHITECTURE_KEY
         ])
 
   @property
@@ -438,7 +447,7 @@ class SavedModelParsingPolicy(ParsingPolicy):
                               yaml_parser: yaml_parser_lib.YamlParser) -> None:
     super().assert_correct_metadata(metadata, yaml_parser)
 
-    format_value = list(metadata.get("format", ""))[0]
+    format_value = list(metadata.get(FORMAT_KEY, ""))[0]
     if format_value not in SAVED_MODEL_FORMATS:
       raise MarkdownDocumentationError(
           f"The 'format' metadata should be one of {SAVED_MODEL_FORMATS} "
@@ -454,8 +463,8 @@ class TfjsParsingPolicy(ParsingPolicy):
         publisher,
         model_name,
         model_version,
-        required_metadata=["asset-path", "parent-model"],
-        optional_metadata=["interactive-model-name"])
+        required_metadata=[ASSET_PATH_KEY, PARENT_MODEL_KEY],
+        optional_metadata=[VISUALIZER_KEY])
 
   @property
   def type_name(self) -> str:
@@ -648,21 +657,6 @@ class DocumentationParser:
           "https://www.tensorflow.org/hub/writing_model_documentation for "
           "information about markdown format.")
 
-  def _assert_allowed_license(self) -> None:
-    """Validates provided license."""
-    if "license" in self._parsed_metadata:
-      license_id = list(self._parsed_metadata["license"])[0]
-      allowed_license_ids = [
-          "Apache-2.0", "BSD-3-Clause", "BSD-2-Clause", "CC-BY-NC-4.0",
-          "GPL-2.0", "GPL-3.0", "LGPL-2.0", "LGPL-2.1", "LGPL-3.0", "MIT",
-          "MPL-2.0", "CDDL-1.0", "EPL-2.0", "custom"
-      ]
-      if license_id not in allowed_license_ids:
-        self._raise_error(
-            f"The license {license_id} provided in metadata is not allowed. "
-            "Please specify a license id from list of allowed ids: "
-            f"[{allowed_license_ids}]. Example: <!-- license: Apache-2.0 -->")
-
   def validate(self, validation_config: ValidationConfig, file_path: str,
                yaml_parser: yaml_parser_lib.YamlParser) -> None:
     """Validate one documentation markdown file."""
@@ -686,7 +680,6 @@ class DocumentationParser:
                                               self._file_path)
     except MarkdownDocumentationError as e:
       self._raise_error(str(e))
-    self._assert_allowed_license()
     self._assert_publisher_page_exists()
 
 

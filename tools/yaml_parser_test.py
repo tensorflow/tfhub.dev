@@ -44,6 +44,12 @@ values:
   - id: fr
     display_name: French"""
 
+DEFAULT_LICENSE_YAML = """
+values:
+  - id: apache-2.0
+    display_name: Apache-2.0
+    url: https://opensource.org/licenses/Apache-2.0"""
+
 DEFAULT_TASK_CONTENT = """
 values:
   - id: text-embedding
@@ -70,6 +76,14 @@ values:
   - id: en
     display_name: English"""
 
+SIMPLE_LICENSE_YAML = """
+values:
+  - id: apache-2.0
+    display_name: Apache-2.0
+    url: https://opensource.org/licenses/Apache-2.0
+  - id: custom
+    display_name: custom"""
+
 SIMPLE_TASK_CONTENT = """
 values:
   - id: text-embedding
@@ -86,17 +100,22 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
     self.architecture_key = "network-architecture"
     self.dataset_key = "dataset"
     self.language_key = "language"
+    self.license_key = "license"
     self.task_key = "task"
 
   def _create_tag_files(self,
                         architecture_content=DEFAULT_ARCHITECTURE_CONTENT,
                         dataset_content=DEFAULT_DATASET_CONTENT,
                         language_content=DEFAULT_LANGUAGE_CONTENT,
+                        license_content=DEFAULT_LICENSE_YAML,
                         task_content=DEFAULT_TASK_CONTENT):
     for tag_key, content in zip([
         self.architecture_key, self.dataset_key, self.language_key,
-        self.task_key
-    ], [architecture_content, dataset_content, language_content, task_content]):
+        self.license_key, self.task_key
+    ], [
+        architecture_content, dataset_content, language_content,
+        license_content, task_content
+    ]):
       self.create_tempfile(
           os.path.join(self.tmp_dir, yaml_parser.TAG_TO_YAML_MAP[tag_key]),
           content)
@@ -190,7 +209,10 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
           "architecture_content": SIMPLE_ARCHITECTURE_CONTENT
       }, {"bert"}),
       ("task", {"task_content": SIMPLE_TASK_CONTENT}, {"text-embedding"}),
-      ("language", {"language_content": SIMPLE_LANGUAGE_CONTENT}, {"en"}))
+      ("language", {"language_content": SIMPLE_LANGUAGE_CONTENT}, {"en"}),
+      ("license", {
+          "license_content": SIMPLE_LICENSE_YAML
+      }, {"apache-2.0", "custom"}))
   def test_get_supported_values(self, tag_key, content_params, expected_values):
     self._create_tag_files(**content_params)
 

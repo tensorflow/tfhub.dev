@@ -1,0 +1,112 @@
+# tfhub.dev supports displaying visualizers on model pages
+# (see e.g. https://tfhub.dev/google/aiy/vision/classifier/birds_V1/1). These are embedded by
+# loading the visualizer URL in an iframe on that model page. Specifying
+# <!-- interactive-visualizer: ID -->
+# in a model Markdown file will look up the visualizer config for `ID` in this file. The visualizer
+# URL is created by taking the `url_template` field of an item and injecting model-specific
+# variables into the URL like so:
+#
+# assets/docs/publisher/cat_detector/1.md:
+# ```
+# # Module publisher/cat_detector/1
+# This model segments cats in images.
+# <!-- interactive-visualizer: cat-detector -->
+# <!-- asset-path: ...
+# ...
+# ```
+#
+# Assuming tags/interactive_visualizer.yaml looks like this:
+# ```
+# values:
+#  - id: my_visualizer
+#    url_template: https://www.gstatic.com/index.html?model={MODEL_HANDLE}
+# ```
+#
+# The following URL will be embedded in an iframe on https://tfhub.dev/publisher/cat_detector/1:
+# https://www.gstatic.com/index.html?model=publisher%2Fcat_detector%2F1
+# Note that the model handle `publisher/cat_detector/1`
+# will be URL-encoded to `publisher%2Fcat_detector%2F1`.
+#
+# The following variable-value-pairs will be substituted considering the
+# tensorflow/mobilenet_v1_0.75_160_quantized/1/default/1 TFLite model, which can be found at
+# https://tfhub.dev/tensorflow/lite-model/mobilenet_v1_0.75_160_quantized/1/default/1:
+#
+# MODEL_HANDLE: tensorflow/mobilenet_v1_0.75_160_quantized/1/default/1
+# MODEL_NAME: mobilenet_v1_0.75_160_quantized/1/default
+# MODEL_URL: https://tfhub.dev/tensorflow/lite-model/mobilenet_v1_0.75_160_quantized/1/default/1
+# PUBLISHER_NAME: TensorFlow
+# PUBLISHER_ICON_URL: https://www.gstatic.com/aihub/tensorflow_logo_120.png
+# All the values will be url-encoded, which we omitted here for improved readability.
+#
+# Note that the visualizers must be hosted on https://www.gstatic.com,
+# https://storage.googleapis.com/tfhub-visualizers or https://storage.googleapis.com/interactive_visualizer.
+
+values:
+  # SPICE model visualizer
+  - id: spice
+    url_template: https://www.gstatic.com/aihub/tfhub/demos/spice.html
+
+  # TF.js powered vision visualizers
+  # Example: https://tfhub.dev/google/aiy/vision/classifier/birds_V1/1
+  # The appended parameters (after being URL-decoded) should look like this:
+  # (index.html)?modelMetadataUrl=https://storage.googleapis.com/tfhub-visualizers/google/aiy/vision/classifier/birds_V1/1/metadata.json&
+  # publisherName=Google&
+  # publisherThumbnailUrl=https://www.gstatic.com/aihub/google_logo_120.png
+  - id: vision
+    url_template: "https://storage.googleapis.com/tfhub-visualizers/visualizers/vision/index.html?\
+      modelMetadataUrl=https%3A%2F%2Fstorage.googleapis.com%2Ftfhub-visualizers%2F{MODEL_HANDLE}%2Fmetadata.json&\
+      publisherName={PUBLISHER_NAME}&publisherThumbnailUrl={PUBLISHER_ICON_URL}"
+
+  # TFLite image classifier visualizers
+  # Example: https://tfhub.dev/tensorflow/lite-model/mobilenet_v1_0.75_160_quantized/1/default/1
+  # The appended parameters (after being URL-decoded) should look like this:
+  # (index.html)?tfWebApi=image_classifier&
+  # testImagesIndexUrl=https://storage.googleapis.com/tfhub-visualizers/google/object_detection/mobile_object_labeler_v1/1/index.json&
+  # publisherName=TensorFlow&
+  # publisherThumbnailUrl=https://www.gstatic.com/aihub/tensorflow_logo_120.png&
+  # tfliteModelUrl=https://tfhub.dev/tensorflow/lite-model/mobilenet_v1_0.75_160_quantized/1/default/1?lite-format=tflite&
+  # modelDisplayName=mobilenet_v1_0.75_160_quantized/1/default
+  - id: tflite_image_classifier
+    url_template: "https://storage.googleapis.com/interactive_visualizer/0.1.2/index.html?\
+      tfWebApi=image_classifier&\
+      testImagesIndexUrl=https%3A%2F%2Fstorage.googleapis.com%2Ftfhub-visualizers%2Fgoogle%2Fobject_detection%2Fmobile_object_labeler_v1%2F1%2Findex.json&\
+      publisherName={PUBLISHER_NAME}&\
+      publisherThumbnailUrl={PUBLISHER_ICON_URL}&\
+      tfliteModelUrl={MODEL_URL}%3Flite-format%3Dtflite&\
+      modelDisplayName={MODEL_NAME}"
+
+  # TFLite object detector visualizers
+  # Example: https://tfhub.dev/tensorflow/lite-model/ssd_mobilenet_v1/1/metadata/2
+  # The appended parameters (after being URL-decoded) should look like this:
+  # (index.html)?tfWebApi=object_detector&
+  # testImagesIndexUrl=https://storage.googleapis.com/tfhub-visualizers/google/object_detection/mobile_object_localizer_v1/1/index.json&
+  # publisherName=TensorFlow&
+  # publisherThumbnailUrl=https://www.gstatic.com/aihub/tensorflow_logo_120.png&
+  # tfliteModelUrl=https://tfhub.dev/tensorflow/lite-model/ssd_mobilenet_v1/1/metadata/2?lite-format=tflite&
+  # modelDisplayName=ssd_mobilenet_v1/1/metadata
+  - id: tflite_object_detector
+    url_template: "https://storage.googleapis.com/interactive_visualizer/0.1.2/index.html?\
+      tfWebApi=object_detector&\
+      testImagesIndexUrl=https%3A%2F%2Fstorage.googleapis.com%2Ftfhub-visualizers%2Fgoogle%2Fobject_detection%2Fmobile_object_localizer_v1%2F1%2Findex.json&\
+      publisherName={PUBLISHER_NAME}&\
+      publisherThumbnailUrl={PUBLISHER_ICON_URL}&\
+      tfliteModelUrl={MODEL_URL}%3Flite-format%3Dtflite&\
+      modelDisplayName={MODEL_NAME}"
+
+  # TFLite image segmenter visualizers
+  # Example: https://tfhub.dev/tensorflow/lite-model/deeplabv3/1/metadata/2
+  # The appended parameters (after being URL-decoded) should look like this:
+  # (index.html?)tfWebApi=image_segmenter&
+  # testImagesIndexUrl=https://storage.googleapis.com/tfhub-visualizers/google/object_detection/mobile_object_localizer_v1/1/index.json&
+  # publisherName=TensorFlow&
+  # publisherThumbnailUrl=https://www.gstatic.com/aihub/tensorflow_logo_120.png&
+  # tfliteModelUrl=https://tfhub.dev/tensorflow/lite-model/deeplabv3/1/metadata/2?lite-format=tflite&
+  # modelDisplayName=deeplabv3/1/metadata
+  - id: tflite_image_segmenter
+    url_template: "https://storage.googleapis.com/interactive_visualizer/0.1.2/index.html?\
+      tfWebApi=image_segmenter&\
+      testImagesIndexUrl=https%3A%2F%2Fstorage.googleapis.com%2Ftfhub-visualizers%2Fgoogle%2Fobject_detection%2Fmobile_object_localizer_v1%2F1%2Findex.json&\
+      publisherName={PUBLISHER_NAME}&\
+      publisherThumbnailUrl={PUBLISHER_ICON_URL}&\
+      tfliteModelUrl={MODEL_URL}%3Flite-format%3Dtflite&\
+      modelDisplayName={MODEL_NAME}"

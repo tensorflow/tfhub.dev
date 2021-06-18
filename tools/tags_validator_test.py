@@ -89,7 +89,9 @@ class TagDefinitionFileParserTest(parameterized.TestCase, tf.test.TestCase):
       ("dataset.yaml", tags_validator.EnumerableTagParser),
       ("network_architecture.yaml", tags_validator.EnumerableTagParser),
       ("task.yaml", tags_validator.TaskTagParser),
-      ("license.yaml", tags_validator.LicenseTagParser))
+      ("license.yaml", tags_validator.LicenseTagParser),
+      ("interactive_visualizer.yaml",
+       tags_validator.InteractiveVisualizerTagParser))
   def test_create_tag_parser(self, yaml_name, expected_type):
     self.assertIsInstance(
         tags_validator.TagDefinitionFileParser.create_tag_parser(
@@ -144,7 +146,8 @@ class EnumerableTagParserTest(TagDefinitionFileParserTest):
     self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
 
   @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
-                            "network_architecture.yaml")
+                            "network_architecture.yaml", "license.yaml",
+                            "interactive_visualizer.yaml")
   def test_extra_top_level_field(self, yaml_name):
     self.set_content(f"tags/{yaml_name}", EXTRA_TOP_LEVEL_FIELD)
 
@@ -154,7 +157,8 @@ class EnumerableTagParserTest(TagDefinitionFileParserTest):
     })
 
   @parameterized.parameters("dataset.yaml", "language.yaml", "task.yaml",
-                            "network_architecture.yaml")
+                            "network_architecture.yaml", "license.yaml",
+                            "interactive_visualizer.yaml")
   def test_wrong_top_level_field(self, yaml_name):
     self.set_content(f"tags/{yaml_name}", WRONG_TOP_LEVEL_FIELD)
 
@@ -163,10 +167,12 @@ class EnumerableTagParserTest(TagDefinitionFileParserTest):
             "Expected top-level keys {'values'} but got ['items']."
     })
 
-  @parameterized.parameters(("dataset.yaml", {"display_name"}),
-                            ("language.yaml", {"display_name"}),
-                            ("network_architecture.yaml", {"display_name"}),
-                            ("task.yaml", {"display_name", "domains"}))
+  @parameterized.parameters(("dataset.yaml", ["display_name"]),
+                            ("language.yaml", ["display_name"]),
+                            ("network_architecture.yaml", ["display_name"]),
+                            ("task.yaml", ["display_name", "domains"]),
+                            ("license.yaml", ["display_name"]),
+                            ("interactive_visualizer.yaml", ["url_template"]))
   def test_missing_required_item_level_field(self, yaml_name, expected_keys):
     self.set_content(f"tags/{yaml_name}", MISSING_REQUIRED_ITEM_LEVEL_FIELD)
 
@@ -223,6 +229,125 @@ class LicenseFileParserTest(TagDefinitionFileParserTest):
     self.set_content("tags/license.yaml", content)
 
     self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+
+class InteractiveVisualizerTagParserTest(TagDefinitionFileParserTest):
+
+  def test_parse_visualizer_from_valid_yaml(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: vision
+          url_template: "https://www.gstatic.com/index.html?\\
+            model={MODEL_HANDLE}"
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+  def test_fail_on_unsupported_variable(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: vision
+          url_template: "https://www.gstatic.com/index.html?\\
+            model={UNKNOWN_VARIABLE}"
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
+            "Only substituting ['MODEL_HANDLE', 'MODEL_NAME', 'MODEL_URL', "
+            "'PUBLISHER_ICON_URL', 'PUBLISHER_NAME'] is allowed: "
+            "https://www.gstatic.com/index.html?model={UNKNOWN_VARIABLE}."
+    })
+
+  def test_fail_on_invalid_url(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: vision
+          url_template: "https://www.gstatic.com]index.html?\\
+            model={MODEL_HANDLE}"
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
+            "https://www.gstatic.com]index.html?model=placeholder is not a "
+            "valid URL."
+    })
+
+  def test_fail_on_spaces_in_url(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: vision
+          url_template: "https://www.gstatic.com/index.html?
+            model={MODEL_HANDLE}"
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
+            "https://www.gstatic.com/index.html? model=placeholder must not "
+            "contain spaces."
+    })
+
+  def test_fail_on_unsecure_url(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: vision
+          url_template: "http://page.com/index.html?\\
+            model={MODEL_HANDLE}"
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
+            "http://page.com/index.html?model=placeholder is not a HTTPS URL."
+    })
+
+  @parameterized.parameters("index.html", "page.com")
+  def test_fail_on_missing_domain_or_path_in_url(self, url):
+    content = textwrap.dedent(f"""\
+      values:
+        - id: vision
+          url_template: https://{url}
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
+            f"https://{url} must specify a domain and a path."
+    })
+
+  @parameterized.parameters(
+      "https://www.gstatic.com/",
+      "https://storage.googleapis.com/tfhub-visualizers/",
+      "https://storage.googleapis.com/interactive_visualizer/")
+  def test_pass_on_allowed_url_prefix(self, url_prefix):
+    content = textwrap.dedent(f"""\
+      values:
+        - id: vision
+          url_template: {url_prefix}index.html
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+  def test_fail_on_disallowed_url_prefix(self):
+    content = textwrap.dedent("""\
+      values:
+        - id: vision
+          url_template: https://mypage.com/index.html
+    """)
+    self.set_content("tags/interactive_visualizer.yaml", content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
+            "URL needs to start with any of ['https://storage.googleapis.com/in"
+            "teractive_visualizer/', 'https://storage.googleapis.com/tfhub-visu"
+            "alizers/', 'https://www.gstatic.com/'] but was "
+            "https://mypage.com/index.html."
+    })
+
 
 if __name__ == "__main__":
   tf.test.main()

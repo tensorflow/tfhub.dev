@@ -18,6 +18,7 @@
 import abc
 import os
 from typing import AbstractSet, Any, List, Mapping, Optional, Type, TypeVar
+import urllib
 
 from absl import logging
 import ruamel.yaml.nodes as nodes
@@ -103,16 +104,17 @@ class TagDefinitionFileParser(metaclass=abc.ABCMeta):
       TagDefinitionError: if no parser is associated to the YAML file.
     """
     file_name = os.path.basename(file_path)
-    if file_name in {
-        "dataset.yaml", "language.yaml", "network_architecture.yaml"
-    }:
-      return EnumerableTagParser(file_path)
-    elif file_name == "task.yaml":
-      return TaskTagParser(file_path)
-    elif file_name == "license.yaml":
-      return LicenseTagParser(file_path)
-    else:
+    parser_from_file_name = {
+        "dataset.yaml": EnumerableTagParser,
+        "language.yaml": EnumerableTagParser,
+        "network_architecture.yaml": EnumerableTagParser,
+        "task.yaml": TaskTagParser,
+        "license.yaml": LicenseTagParser,
+        "interactive_visualizer.yaml": InteractiveVisualizerTagParser
+    }
+    if file_name not in parser_from_file_name:
       raise TagDefinitionError(f"No parser is registered for {file_name}.")
+    return parser_from_file_name[file_name](file_path)
 
   @property
   @abc.abstractmethod
@@ -231,8 +233,8 @@ class EnumerableTagParser(TagDefinitionFileParser):
     """
     missing_required_field = self.required_item_keys - set(item.keys())
     if missing_required_field:
-      raise TagDefinitionError(
-          f"Missing required item-level keys: {missing_required_field}.")
+      raise TagDefinitionError(f"Missing required item-level keys: "
+                               f"{sorted(missing_required_field)}.")
     unsupported_field = set(item.keys()) - self.supported_item_keys
     if unsupported_field:
       raise TagDefinitionError(
@@ -296,6 +298,102 @@ class TaskTagParser(EnumerableTagParser):
         required_item_keys={
             self.ID_KEY, self.DISPLAY_NAME_KEY, self.DOMAINS_KEY
         })
+
+
+class InteractiveVisualizerTagParser(EnumerableTagParser):
+  r"""Class for parsing and validating interactive_visualizer.yaml.
+
+  This tag requires to set both 'id' and 'url_template' at the item-level.
+  An example of a valid file looks like this:
+
+  values:
+    - id: tflite_object_detector
+      url_template: "https://www.gstatic.com/visualizer.html?\
+        modelHandle={MODEL_HANDLE}"
+  """
+
+  URL_TEMPLATE_KEY = "url_template"
+  SUPPORTED_VARIABLES = frozenset({
+      "MODEL_HANDLE", "MODEL_NAME", "MODEL_URL", "PUBLISHER_NAME",
+      "PUBLISHER_ICON_URL"
+  })
+  ALLOWED_URL_PREFIXES = frozenset({
+      "https://www.gstatic.com/",
+      "https://storage.googleapis.com/tfhub-visualizers/",
+      "https://storage.googleapis.com/interactive_visualizer/"
+  })
+  HTTPS_SCHEME = "https"
+
+  def __init__(self, file_path: str) -> None:
+    super().__init__(
+        file_path, required_item_keys={self.ID_KEY, self.URL_TEMPLATE_KEY})
+
+  def _assert_valid_url(self, possible_url: str) -> None:
+    """Checks that the given string is a valid and allowed URL.
+
+    The HTTPS URL should be parseable, not contain spaces and start with an
+    allowed prefix.
+
+    Args:
+      possible_url: String that should be checked for being an allowed URL.
+
+    Raises:
+      TagDefinitionError:
+        - if the string is not a valid URL.
+        - if the URL contains spaces.
+        - if the URL is not an HTTPS URL.
+        - if the URL does not specify both a domain and a path.
+        - if the URL does not start with one allowed URL prefix.
+    """
+    try:
+      result = urllib.parse.urlparse(possible_url)
+    except ValueError:
+      raise TagDefinitionError(f"{possible_url} is not a valid URL.")
+    if " " in possible_url:
+      raise TagDefinitionError(f"{possible_url} must not contain spaces.")
+    if result.scheme != self.HTTPS_SCHEME:
+      raise TagDefinitionError(f"{possible_url} is not a HTTPS URL.")
+    if not all([result.netloc, result.path]):
+      raise TagDefinitionError(
+          f"{possible_url} must specify a domain and a path.")
+    # Keep the two preceding tests even if the next one is stricter. This should
+    # allow to be future proof in case e.g. an http prefix is accidentially
+    # added to ALLOWED_URL_PREFIXES.
+    if not possible_url.startswith(tuple(self.ALLOWED_URL_PREFIXES)):
+      raise TagDefinitionError(
+          f"URL needs to start with any of {sorted(self.ALLOWED_URL_PREFIXES)}"
+          f" but was {possible_url}.")
+
+  def _assert_valid_item_level_keys(self, item: Mapping[str, str]) -> None:
+    """Validates the keys of the given item.
+
+    Args:
+      item: Mapping representing a visualizer item e.g. {id=spice,
+        url_template=https://www.gstatic.com/aihub/tfhub/demos/spice.html}.
+
+    Raises:
+      TagDefinitionError:
+        - if not all required item-level keys are set.
+        - if keys are different from the supported item-level keys.
+        - if 'url_template' contains additional injectible variables.
+        - if 'url_template' is not a valid URL.
+        - if 'url_template' contains spaces.
+        - if 'url_template' is no HTTPS URL.
+        - if 'url_template' does not specify both a domain and a path.
+        - if 'url_template' does not start with one allowed URL prefix.
+    """
+    super()._assert_valid_item_level_keys(item)
+    variable_to_placeholder_map = {
+        variable: "placeholder" for variable in self.SUPPORTED_VARIABLES
+    }
+    template_url = item[self.URL_TEMPLATE_KEY]
+    try:
+      formatted_url = template_url.format(**variable_to_placeholder_map)
+    except KeyError:
+      raise TagDefinitionError(
+          f"Only substituting {sorted(list(self.SUPPORTED_VARIABLES))} is "
+          f"allowed: {template_url}.")
+    self._assert_valid_url(formatted_url)
 
 
 def validate_tag_files(

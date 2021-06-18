@@ -28,6 +28,34 @@ import yaml
 TagDefinitionFileParserT = TypeVar(
     "TagDefinitionFileParserT", bound="TagDefinitionFileParser")
 
+# Constants used by UniqueStringKeyLoader.
+YAML_STR_TAG = "tag:yaml.org,2002:str"  # https://yaml.org/type/str.html
+# Field names used by EnumerableTagParser.
+# Keys of top-level fields.
+VALUES_KEY = "values"
+# Keys of item-level fields.
+ID_KEY = "id"
+DISPLAY_NAME_KEY = "display_name"
+URL_KEY = "url"
+# Field names used by TaskTagParser.
+DOMAINS_KEY = "domains"
+# Field names used by InteractiveVisualizerTagParser.
+URL_TEMPLATE_KEY = "url_template"
+SUPPORTED_VARIABLES = frozenset({
+    "MODEL_HANDLE", "MODEL_NAME", "MODEL_URL", "PUBLISHER_NAME",
+    "PUBLISHER_ICON_URL"
+})
+ALLOWED_URL_PREFIXES = frozenset({
+    "https://www.gstatic.com/",
+    "https://storage.googleapis.com/tfhub-visualizers/",
+    "https://storage.googleapis.com/interactive_visualizer/"
+})
+HTTPS_SCHEME = "https"
+# Field names used by UrlTagParser.
+REQUIRED_DOMAIN_KEY = "required_domain"
+FORMAT_KEY = "format"
+SUPPORTED_FORMATS = frozenset({"url"})
+
 
 class TagDefinitionError(Exception):
   """Problem with tag definition in a YAML file."""
@@ -35,8 +63,6 @@ class TagDefinitionError(Exception):
 
 class UniqueStringKeyLoader(yaml.SafeLoader):
   """YAML loader that only allows unique keys and string values."""
-
-  YAML_STR_TAG = "tag:yaml.org,2002:str"  # https://yaml.org/type/str.html
 
   def construct_scalar(self, node: nodes.ScalarNode) -> nodes.ScalarNode:
     """Returns ScalarNode that contains only string values.
@@ -49,7 +75,7 @@ class UniqueStringKeyLoader(yaml.SafeLoader):
     Raises:
       TagDefinitionError: if a non-string value is passed.
     """
-    if node.tag != self.YAML_STR_TAG:
+    if node.tag != YAML_STR_TAG:
       raise TagDefinitionError(f"Found non-string value: {node}")
     return super().construct_scalar(node)
 
@@ -84,10 +110,18 @@ class TagDefinitionFileParser(metaclass=abc.ABCMeta):
 
   Attributes:
     _file_path: absolute path to the YAML file that should be validated.
+    required_top_keys: keys at the root of the file that have to be specified.
+    optional_top_keys: keys at the root of the file that can be specified.
+    supported_top_keys: set containing both required and optional keys.
   """
 
-  def __init__(self, file_path: str) -> None:
+  def __init__(self, file_path: str, required_top_keys: AbstractSet[str],
+               optional_top_keys: AbstractSet[str]) -> None:
     self._file_path = file_path
+    self.required_top_keys = required_top_keys
+    self.optional_top_keys = optional_top_keys
+    self.supported_top_keys = set.union(self.required_top_keys,
+                                        self.optional_top_keys)
 
   @classmethod
   def create_tag_parser(cls: Type[TagDefinitionFileParserT],
@@ -110,16 +144,13 @@ class TagDefinitionFileParser(metaclass=abc.ABCMeta):
         "network_architecture.yaml": EnumerableTagParser,
         "task.yaml": TaskTagParser,
         "license.yaml": LicenseTagParser,
-        "interactive_visualizer.yaml": InteractiveVisualizerTagParser
+        "interactive_visualizer.yaml": InteractiveVisualizerTagParser,
+        "colab.yaml": UrlTagParser,
+        "demo.yaml": UrlTagParser
     }
     if file_name not in parser_from_file_name:
       raise TagDefinitionError(f"No parser is registered for {file_name}.")
     return parser_from_file_name[file_name](file_path)
-
-  @property
-  @abc.abstractmethod
-  def required_top_keys(self) -> AbstractSet[str]:
-    """Set of required top-level keys in a YAML file."""
 
   @abc.abstractmethod
   def _validate_yaml_config(self, loaded_yaml: Mapping[str, Any]) -> None:
@@ -159,50 +190,45 @@ class EnumerableTagParser(TagDefinitionFileParser):
   Enumerable tag definition files contain a list of all items that tag can be
   set to. A tag file thus has top-level keys (i.e. 'values') and item-level keys
   (i.e. 'id', 'display_name').
-  """
 
-  VALUES_KEY = "values"
-  ID_KEY = "id"
-  DISPLAY_NAME_KEY = "display_name"
+  Attributes:
+    _file_path: absolute path to the YAML file that should be validated.
+    required_top_keys: keys at the root of the file that have to be specified.
+      Defaults to {'values'}.
+    optional_top_keys: keys at the root of the file that can be specified.
+      Defaults to {}.
+    supported_top_keys: set containing both required and optional keys.
+    required_item_keys: keys for each item that have to be specified.
+      Defaults to {'id', 'display_name'}.
+    optional_item_keys: keys for each item that can be specified.
+      Defaults to {}.
+    supported_item_keys: set of keys that are both required and optional.
+  """
 
   def __init__(self,
                file_path: str,
                required_top_keys: Optional[AbstractSet[str]] = None,
                required_item_keys: Optional[AbstractSet[str]] = None,
                optional_item_keys: Optional[AbstractSet[str]] = None) -> None:
-    super().__init__(file_path)
     if required_top_keys is None:
-      self._required_top_keys = {self.VALUES_KEY}
+      required_top_keys_param = {VALUES_KEY}
     else:
-      self._required_top_keys = required_top_keys
+      required_top_keys_param = required_top_keys
+    super().__init__(
+        file_path,
+        required_top_keys=required_top_keys_param,
+        optional_top_keys=set())
+
     if required_item_keys is None:
-      self._required_item_keys = {self.ID_KEY, self.DISPLAY_NAME_KEY}
+      self.required_item_keys = {ID_KEY, DISPLAY_NAME_KEY}
     else:
-      self._required_item_keys = required_item_keys
+      self.required_item_keys = required_item_keys
     if optional_item_keys is None:
-      self._optional_item_keys = set()
+      self.optional_item_keys = set()
     else:
-      self._optional_item_keys = optional_item_keys
-
-  @property
-  def required_top_keys(self) -> AbstractSet[str]:
-    """The set of required keys at the root of the YAML file."""
-    return self._required_top_keys
-
-  @property
-  def required_item_keys(self) -> AbstractSet[str]:
-    """The set of required keys at the item-level of the YAML file."""
-    return self._required_item_keys
-
-  @property
-  def optional_item_keys(self) -> AbstractSet[str]:
-    """The set of optional keys at the item-level of the YAML file."""
-    return self._optional_item_keys
-
-  @property
-  def supported_item_keys(self) -> AbstractSet[str]:
-    """The union of required and optional keys at the item-level."""
-    return set.union(self.required_item_keys, self.optional_item_keys)
+      self.optional_item_keys = optional_item_keys
+    self.supported_item_keys = set.union(self.required_item_keys,
+                                         self.optional_item_keys)
 
   def _assert_valid_top_level_keys(self, loaded_yaml: Mapping[str,
                                                               str]) -> None:
@@ -254,7 +280,7 @@ class EnumerableTagParser(TagDefinitionFileParser):
     """
 
     self._assert_valid_top_level_keys(loaded_yaml)
-    for item in loaded_yaml[self.VALUES_KEY]:
+    for item in loaded_yaml[VALUES_KEY]:
       self._assert_valid_item_level_keys(item)
 
 
@@ -271,10 +297,8 @@ class LicenseTagParser(EnumerableTagParser):
       url: https://opensource.org/licenses/Apache-2.0  # Optional
   """
 
-  URL_KEY = "url"
-
   def __init__(self, file_path: str) -> None:
-    super().__init__(file_path, optional_item_keys={self.URL_KEY})
+    super().__init__(file_path, optional_item_keys={URL_KEY})
 
 
 class TaskTagParser(EnumerableTagParser):
@@ -290,14 +314,9 @@ class TaskTagParser(EnumerableTagParser):
         - image
   """
 
-  DOMAINS_KEY = "domains"
-
   def __init__(self, file_path: str) -> None:
     super().__init__(
-        file_path,
-        required_item_keys={
-            self.ID_KEY, self.DISPLAY_NAME_KEY, self.DOMAINS_KEY
-        })
+        file_path, required_item_keys={ID_KEY, DISPLAY_NAME_KEY, DOMAINS_KEY})
 
 
 class InteractiveVisualizerTagParser(EnumerableTagParser):
@@ -312,21 +331,9 @@ class InteractiveVisualizerTagParser(EnumerableTagParser):
         modelHandle={MODEL_HANDLE}"
   """
 
-  URL_TEMPLATE_KEY = "url_template"
-  SUPPORTED_VARIABLES = frozenset({
-      "MODEL_HANDLE", "MODEL_NAME", "MODEL_URL", "PUBLISHER_NAME",
-      "PUBLISHER_ICON_URL"
-  })
-  ALLOWED_URL_PREFIXES = frozenset({
-      "https://www.gstatic.com/",
-      "https://storage.googleapis.com/tfhub-visualizers/",
-      "https://storage.googleapis.com/interactive_visualizer/"
-  })
-  HTTPS_SCHEME = "https"
-
   def __init__(self, file_path: str) -> None:
     super().__init__(
-        file_path, required_item_keys={self.ID_KEY, self.URL_TEMPLATE_KEY})
+        file_path, required_item_keys={ID_KEY, URL_TEMPLATE_KEY})
 
   def _assert_valid_url(self, possible_url: str) -> None:
     """Checks that the given string is a valid and allowed URL.
@@ -351,7 +358,7 @@ class InteractiveVisualizerTagParser(EnumerableTagParser):
       raise TagDefinitionError(f"{possible_url} is not a valid URL.")
     if " " in possible_url:
       raise TagDefinitionError(f"{possible_url} must not contain spaces.")
-    if result.scheme != self.HTTPS_SCHEME:
+    if result.scheme != HTTPS_SCHEME:
       raise TagDefinitionError(f"{possible_url} is not a HTTPS URL.")
     if not all([result.netloc, result.path]):
       raise TagDefinitionError(
@@ -359,9 +366,9 @@ class InteractiveVisualizerTagParser(EnumerableTagParser):
     # Keep the two preceding tests even if the next one is stricter. This should
     # allow to be future proof in case e.g. an http prefix is accidentially
     # added to ALLOWED_URL_PREFIXES.
-    if not possible_url.startswith(tuple(self.ALLOWED_URL_PREFIXES)):
+    if not possible_url.startswith(tuple(ALLOWED_URL_PREFIXES)):
       raise TagDefinitionError(
-          f"URL needs to start with any of {sorted(self.ALLOWED_URL_PREFIXES)}"
+          f"URL needs to start with any of {sorted(ALLOWED_URL_PREFIXES)}"
           f" but was {possible_url}.")
 
   def _assert_valid_item_level_keys(self, item: Mapping[str, str]) -> None:
@@ -384,16 +391,64 @@ class InteractiveVisualizerTagParser(EnumerableTagParser):
     """
     super()._assert_valid_item_level_keys(item)
     variable_to_placeholder_map = {
-        variable: "placeholder" for variable in self.SUPPORTED_VARIABLES
+        variable: "placeholder" for variable in SUPPORTED_VARIABLES
     }
-    template_url = item[self.URL_TEMPLATE_KEY]
+    template_url = item[URL_TEMPLATE_KEY]
     try:
       formatted_url = template_url.format(**variable_to_placeholder_map)
     except KeyError:
       raise TagDefinitionError(
-          f"Only substituting {sorted(list(self.SUPPORTED_VARIABLES))} is "
+          f"Only substituting {sorted(list(SUPPORTED_VARIABLES))} is "
           f"allowed: {template_url}.")
     self._assert_valid_url(formatted_url)
+
+
+class UrlTagParser(TagDefinitionFileParser):
+  """Class for validating tag definition files for URLs.
+
+  Tags like `colab` or `demo` should be set to URLs, which are not enumerable.
+  The YAML files should allow restricting the URLs to specific domains like so:
+  ```
+  format: url  # No other value than 'url' is supported for now
+  required_domain: colab.research.google.com  # Optional
+  ```
+  Setting the 'required_domain' field enforces that the provided url value
+  points to a URL of that domain.
+  """
+
+  def __init__(self, file_path: str) -> None:
+    super().__init__(
+        file_path,
+        required_top_keys={FORMAT_KEY},
+        optional_top_keys={REQUIRED_DOMAIN_KEY})
+
+  def _validate_yaml_config(self, loaded_yaml: Mapping[str, Any]) -> None:
+    """Ensures that the URL tag file is valid.
+
+    Args:
+      loaded_yaml: Loaded YAML, which is a result of yaml.load().
+
+    Raises:
+      TagDefinitionError:
+        - if no required `format` field is set.
+        - if an unsupported key is set.
+        - if the `format` field is set to an unsupported value.
+    """
+    missing_keys = self.required_top_keys - set(loaded_yaml.keys())
+    if missing_keys:
+      raise TagDefinitionError(
+          f"Missing required top-level keys: {missing_keys}.")
+
+    unsupported_keys = set(loaded_yaml.keys()) - self.supported_top_keys
+    if unsupported_keys:
+      raise TagDefinitionError(
+          f"Unsupported top-level keys: {unsupported_keys}.")
+
+    format_value = loaded_yaml[FORMAT_KEY]
+    if format_value not in SUPPORTED_FORMATS:
+      raise TagDefinitionError(
+          f"Expected 'format' value to be one of {set(SUPPORTED_FORMATS)} "
+          f"but was '{format_value}'.")
 
 
 def validate_tag_files(

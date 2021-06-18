@@ -61,7 +61,7 @@ values:
     display_name: Norwegian data"""
 
 
-class TagDefinitionFileParserTest(parameterized.TestCase, tf.test.TestCase):
+class TagDefinitionFileParserTestUtils(tf.test.TestCase):
 
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
@@ -84,6 +84,10 @@ class TagDefinitionFileParserTest(parameterized.TestCase, tf.test.TestCase):
     with tf.io.gfile.GFile(full_path, "w") as output_file:
       output_file.write(content)
 
+
+class TagDefinitionFileParserTest(parameterized.TestCase,
+                                  TagDefinitionFileParserTestUtils):
+
   @parameterized.parameters(
       ("language.yaml", tags_validator.EnumerableTagParser),
       ("dataset.yaml", tags_validator.EnumerableTagParser),
@@ -91,7 +95,9 @@ class TagDefinitionFileParserTest(parameterized.TestCase, tf.test.TestCase):
       ("task.yaml", tags_validator.TaskTagParser),
       ("license.yaml", tags_validator.LicenseTagParser),
       ("interactive_visualizer.yaml",
-       tags_validator.InteractiveVisualizerTagParser))
+       tags_validator.InteractiveVisualizerTagParser),
+      ("colab.yaml", tags_validator.UrlTagParser),
+      ("demo.yaml", tags_validator.UrlTagParser))
   def test_create_tag_parser(self, yaml_name, expected_type):
     self.assertIsInstance(
         tags_validator.TagDefinitionFileParser.create_tag_parser(
@@ -346,6 +352,43 @@ class InteractiveVisualizerTagParserTest(TagDefinitionFileParserTest):
             "teractive_visualizer/', 'https://storage.googleapis.com/tfhub-visu"
             "alizers/', 'https://www.gstatic.com/'] but was "
             "https://mypage.com/index.html."
+    })
+
+
+@parameterized.parameters("colab.yaml", "demo.yaml")
+class UrlTagParserTest(TagDefinitionFileParserTestUtils):
+
+  def test_pass_on_good_content(self, yaml_name):
+    content = textwrap.dedent("""\
+    format: url
+    required_domain: page.com
+    """)
+    self.set_content(f"tags/{yaml_name}", content)
+
+    self.assertEmpty(tags_validator.validate_tag_dir(self.tmp_dir.full_path))
+
+  def test_fail_on_wrong_top_level_key(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", "regex: url")
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Missing required top-level keys: {'format'}."
+    })
+
+  def test_fail_on_unsupported_format(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", "format: website")
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Expected 'format' value to be one of {'url'} but was 'website'."
+    })
+
+  def test_fail_on_unsupported_top_level_key(self, yaml_name):
+    self.set_content(f"tags/{yaml_name}", "format: url\nregex: .*")
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            "Unsupported top-level keys: {'regex'}."
     })
 
 

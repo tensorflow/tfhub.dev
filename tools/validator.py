@@ -417,8 +417,8 @@ class SavedModelParsingPolicy(ParsingPolicy):
             ASSET_PATH_KEY, FINE_TUNABLE_KEY, FORMAT_KEY, TASK_KEY
         ],
         optional_metadata=[
-            DATASET_KEY, VISUALIZER_KEY, LANGUAGE_KEY, LICENSE_KEY,
-            ARCHITECTURE_KEY
+            ARCHITECTURE_KEY, DATASET_KEY, LANGUAGE_KEY, LICENSE_KEY,
+            VISUALIZER_KEY
         ])
 
   @property

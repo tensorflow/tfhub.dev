@@ -61,12 +61,21 @@ values:
     domains:
       - text"""
 
+VISUALIZER_YAML = """
+values:
+  - id: spice
+    url_template: https://www.gstatic.com/aihub/tfhub/demos/spice.html
+  - id: vision
+    url_template: "https://storage.googleapis.com/tfhub-visualizers.html"
+"""
+
 TAG_FILE_NAME_TO_CONTENT_MAP = {
     "network_architecture.yaml": ARCHITECTURE_YAML,
     "dataset.yaml": DATASET_YAML,
     "language.yaml": LANGUAGE_YAML,
     "license.yaml": LICENSE_YAML,
-    "task.yaml": TASK_YAML
+    "task.yaml": TASK_YAML,
+    "interactive_visualizer.yaml": VISUALIZER_YAML
 }
 
 LEGACY_VALUE = "legacy"
@@ -92,18 +101,6 @@ multiple lines.
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
 <!-- {tag_key}: {tag_value} -->
-"""
-
-SAVED_MODEL_LICENSE_TEMPLATE = """# Module google/model/1
-Simple description.
-
-<!-- asset-path: /path/to/model.tar.gz -->
-<!-- task: text-embedding -->
-<!-- fine-tunable: true -->
-<!-- format: saved_model_2 -->
-<!-- license: %s -->
-
-## Overview
 """
 
 SAVED_MODEL_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
@@ -189,6 +186,16 @@ multiple lines.
 
 ## Overview
 """
+
+TFJS_OPTIONAL_TAG_TEMPLATE = """# Tfjs google/text-embedding-model/tfjs/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: https://page.com/model.tar.gz -->
+<!-- parent-model:   google/text-embedding-model/1   -->
+<!-- {tag_key}: {tag_value} -->
+
+## Overview"""
 
 MINIMAL_COLLECTION = """# Collection google/text-embedding-collection/1
 Simple description spanning
@@ -683,7 +690,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(PLACEHOLDER_OPTIONAL_TAG_TEMPLATE,
                             SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
-                            LITE_OPTIONAL_TAG_TEMPLATE)
+                            LITE_OPTIONAL_TAG_TEMPLATE,
+                            TFJS_OPTIONAL_TAG_TEMPLATE)
   def test_markdown_with_unsupported_metadata(self, markdown_template):
     self.set_up_publisher_page("google")
     content = markdown_template.format(
@@ -697,20 +705,23 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   @parameterized.parameters(
-      ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
-      ("network-architecture", "n/a", "network_architecture"),
-      ("license", "my_license", "license"))
+      ("dataset", "dataset"),
+      ("interactive-model-name", "interactive_visualizer"),
+      ("language", "language"),
+      ("license", "license"),
+      ("network-architecture", "network_architecture"),
+  )
   def test_saved_model_markdown_with_unsupported_tag_value(
-      self, tag_key, tag_value, yaml_file_name):
+      self, tag_key, yaml_file_name):
     self.set_up_publisher_page("google")
     content = SAVED_MODEL_OPTIONAL_TAG_TEMPLATE.format(
-        tag_key=tag_key, tag_value=tag_value)
+        tag_key=tag_key, tag_value="n/a")
     self.set_content("root/assets/docs/google/models/model/1.md", content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
         f"Unsupported values for {tag_key} tag were found: "
-        rf"\['{tag_value}'\]. Please add them to tags/{yaml_file_name}.yaml."):
+        rf"\['n/a'\]. Please add them to tags/{yaml_file_name}.yaml."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
@@ -727,26 +738,27 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
         f"Unsupported values for {tag_key} tag were found: "
-        rf"\['{tag_value}'\]. Please add them to tags/{yaml_file_name}.yaml."):
+        rf"\['n/a'\]. Please add them to tags/{yaml_file_name}.yaml."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
 
   @parameterized.parameters(
-      ("dataset", "n/a", "dataset"), ("language", "n/a", "language"),
-      ("network-architecture", "n/a", "network_architecture"),
-      ("license", "my_license", "license"))
+      ("dataset", "dataset"),
+      ("interactive-model-name", "interactive_visualizer"),
+      ("language", "language"), ("license", "license"),
+      ("network-architecture", "network_architecture"))
   def test_placeholder_markdown_with_unsupported_tag_value(
-      self, tag_key, tag_value, yaml_file_name):
+      self, tag_key, yaml_file_name):
     self.set_up_publisher_page("google")
     content = PLACEHOLDER_OPTIONAL_TAG_TEMPLATE.format(
-        tag_key=tag_key, tag_value=tag_value)
+        tag_key=tag_key, tag_value="n/a")
     self.set_content("root/assets/docs/google/models/model/1.md", content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
         f"Unsupported values for {tag_key} tag were found: "
-        rf"\['{tag_value}'\]. Please add them to tags/{yaml_file_name}.yaml."):
+        rf"\['n/a'\]. Please add them to tags/{yaml_file_name}.yaml."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)

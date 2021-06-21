@@ -28,7 +28,8 @@ TAG_TO_YAML_MAP = collections.OrderedDict({
     "language": "tags/language.yaml",
     "task": "tags/task.yaml",
     "network-architecture": "tags/network_architecture.yaml",
-    "license": "tags/license.yaml"
+    "license": "tags/license.yaml",
+    "interactive-model-name": "tags/interactive_visualizer.yaml"
 })
 
 # Field names in the used YAML config files.
@@ -36,7 +37,8 @@ ID_KEY = "id"
 DISPLAY_NAME = "display_name"
 VALUES_KEY = "values"
 
-TagValuesValidatorT = TypeVar("TagValuesValidatorT", bound="TagValuesValidator")
+EnumerableTagValuesValidatorType = TypeVar(
+    "EnumerableTagValuesValidatorType", bound="EnumerableTagValuesValidator")
 
 
 @attr.s(auto_attribs=True)
@@ -45,15 +47,16 @@ class TagValue:
 
   Attributes:
     id: String representing the unique identifier of an item e.g. 'en'.
-    display_name: Human-readable representation e.g. 'English'.
   """
   id: str
-  display_name: str
 
 
 @attr.s(auto_attribs=True)
-class TagValuesValidator:
+class EnumerableTagValuesValidator:
   """Loads all tag values and validates them.
+
+  Items of enumerable tags (dataset, license, ...) should have an 'id' field,
+  which can be used in the model Markdown documentation.
 
   Attributes:
     values: Sequence containing the possible TagValues a tag can be set to.
@@ -61,21 +64,21 @@ class TagValuesValidator:
   values: Sequence[TagValue]
 
   @classmethod
-  def from_yaml(cls: Type[TagValuesValidatorT],
-                yaml_config: Mapping[str, Any]) -> TagValuesValidatorT:
-    """Builds a TagValuesValidator instance from a loaded YAML config.
+  def from_yaml(
+      cls: Type[EnumerableTagValuesValidatorType],
+      yaml_config: Mapping[str, Any]) -> EnumerableTagValuesValidatorType:
+    """Builds an EnumerableTagValuesValidator instance from a YAML config.
 
     Args:
       yaml_config: A config loaded from a YAML file.
 
     Returns:
-      A TagValuesValidator instance loaded from the YAML config.
+      An EnumerableTagValuesValidator instance loaded from the YAML config.
 
     Raises:
       ValueError:
         - if yaml_config does not contain a `values` field.
-        - if a tag item within yaml_config does not contain an `id` field or
-          a `display_name` field.
+        - if a tag item within yaml_config does not contain an `id` field.
     """
 
     if VALUES_KEY not in yaml_config:
@@ -84,10 +87,10 @@ class TagValuesValidator:
 
     values = list()
     for item in yaml_config[VALUES_KEY]:
-      if ID_KEY not in item or DISPLAY_NAME not in item:
-        raise ValueError(f"A tag item must contain both an `{ID_KEY}` field "
-                         f"and a `{DISPLAY_NAME}` field but was {item}.")
-      values.append(TagValue(id=item[ID_KEY], display_name=item[DISPLAY_NAME]))
+      if ID_KEY not in item:
+        raise ValueError(f"A tag item must contain an `{ID_KEY}` field but was "
+                         f"{item}.")
+      values.append(TagValue(id=item[ID_KEY]))
     return cls(values)
 
   def validate(self) -> None:
@@ -130,7 +133,7 @@ class YamlParser:
     for tag_name, yaml_path in TAG_TO_YAML_MAP.items():
       with open(os.path.join(self._root_dir, yaml_path)) as yaml_file:
         yaml_config = yaml.safe_load(yaml_file.read())
-      tag_validator = TagValuesValidator.from_yaml(yaml_config)
+      tag_validator = EnumerableTagValuesValidator.from_yaml(yaml_config)
       tag_validator.validate()
       supported_values_map[tag_name] = {
           item.id for item in tag_validator.values

@@ -144,6 +144,7 @@ multiple lines.
 <!-- language: en -->
 <!-- network-architecture: bert -->
 <!-- license: apache-2.0 -->
+<!-- colab: https://colab.research.google.com/mycolab.ipynb -->
 
 ## Overview
 """
@@ -703,6 +704,28 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         r".*contains unsupported metadata properties: \['unsupported_tag'\].*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
+                            TFJS_OPTIONAL_TAG_TEMPLATE,
+                            LITE_OPTIONAL_TAG_TEMPLATE)
+  def test_markdown_with_colab_tag(self, template):
+    self.set_up_publisher_page("google")
+    content = template.format(
+        tag_key="colab",
+        tag_value="https://colab.research.google.com/mycolab.ipynb")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    validator.validate_documentation_dir(
+        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  def test_demo_tag_on_tfjs_model(self):
+    self.set_up_publisher_page("google")
+    content = TFJS_OPTIONAL_TAG_TEMPLATE.format(
+        tag_key="demo", tag_value="https://mydemo.com")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    validator.validate_documentation_dir(
+        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   @parameterized.parameters(
       ("dataset", "dataset"),

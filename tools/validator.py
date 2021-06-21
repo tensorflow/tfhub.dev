@@ -92,7 +92,11 @@ METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 # Dict keys that map to the specified metadata values of the Markdown files.
 ARCHITECTURE_KEY = "network-architecture"
 ASSET_PATH_KEY = "asset-path"
+# TODO(b/182137324): Validate the tag values as specified in colab.yaml.
+COLAB_KEY = "colab"
 DATASET_KEY = "dataset"
+# TODO(b/182137324): Validate the tag values as specified in demo.yaml.
+DEMO_KEY = "demo"
 FINE_TUNABLE_KEY = "fine-tunable"
 FORMAT_KEY = "format"
 LANGUAGE_KEY = "language"
@@ -417,7 +421,7 @@ class SavedModelParsingPolicy(ParsingPolicy):
             ASSET_PATH_KEY, FINE_TUNABLE_KEY, FORMAT_KEY, TASK_KEY
         ],
         optional_metadata=[
-            ARCHITECTURE_KEY, DATASET_KEY, LANGUAGE_KEY, LICENSE_KEY,
+            ARCHITECTURE_KEY, COLAB_KEY, DATASET_KEY, LANGUAGE_KEY, LICENSE_KEY,
             VISUALIZER_KEY
         ])
 
@@ -464,7 +468,7 @@ class TfjsParsingPolicy(ParsingPolicy):
         model_name,
         model_version,
         required_metadata=[ASSET_PATH_KEY, PARENT_MODEL_KEY],
-        optional_metadata=[VISUALIZER_KEY])
+        optional_metadata=[COLAB_KEY, DEMO_KEY, VISUALIZER_KEY])
 
   @property
   def type_name(self) -> str:
@@ -475,8 +479,17 @@ class TfjsParsingPolicy(ParsingPolicy):
     return TARFILE_SUFFIX
 
 
-class LiteParsingPolicy(TfjsParsingPolicy):
+class LiteParsingPolicy(ParsingPolicy):
   """ParsingPolicy for TFLite documentation."""
+
+  def __init__(self, publisher: str, model_name: str,
+               model_version: str) -> None:
+    super(LiteParsingPolicy, self).__init__(
+        publisher,
+        model_name,
+        model_version,
+        required_metadata=[ASSET_PATH_KEY, PARENT_MODEL_KEY],
+        optional_metadata=[COLAB_KEY, VISUALIZER_KEY])
 
   @property
   def type_name(self) -> str:

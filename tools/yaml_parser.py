@@ -16,7 +16,6 @@
 
 import collections
 import os
-import re
 from typing import AbstractSet, Any, Mapping, TypeVar, Sequence, Type
 
 import attr
@@ -34,7 +33,6 @@ TAG_TO_YAML_MAP = collections.OrderedDict({
 
 # Field names in the used YAML config files.
 ID_KEY = "id"
-DISPLAY_NAME = "display_name"
 VALUES_KEY = "values"
 
 EnumerableTagValuesValidatorType = TypeVar(
@@ -93,18 +91,6 @@ class EnumerableTagValuesValidator:
       values.append(TagValue(id=item[ID_KEY]))
     return cls(values)
 
-  def validate(self) -> None:
-    """Ensures that the given config only contains valid values.
-
-    Raises:
-      ValueError: if the `id` field of an item is invalid.
-    """
-    id_pattern = r"[a-z-\d\.]+"
-    for item in self.values:
-      if re.fullmatch(id_pattern, item.id) is None:
-        raise ValueError(f"The value of an id must match {id_pattern} but was "
-                         f"{item.id}.")
-
 
 class YamlParser:
   """Loads supported tags from the YAML config files.
@@ -134,7 +120,6 @@ class YamlParser:
       with open(os.path.join(self._root_dir, yaml_path)) as yaml_file:
         yaml_config = yaml.safe_load(yaml_file.read())
       tag_validator = EnumerableTagValuesValidator.from_yaml(yaml_config)
-      tag_validator.validate()
       supported_values_map[tag_name] = {
           item.id for item in tag_validator.values
       }

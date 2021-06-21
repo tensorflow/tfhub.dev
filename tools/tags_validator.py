@@ -17,6 +17,7 @@
 
 import abc
 import os
+import re
 from typing import AbstractSet, Any, List, Mapping, Optional, Type, TypeVar
 import urllib
 
@@ -35,6 +36,7 @@ YAML_STR_TAG = "tag:yaml.org,2002:str"  # https://yaml.org/type/str.html
 VALUES_KEY = "values"
 # Keys of item-level fields.
 ID_KEY = "id"
+ID_PATTERN = r"[a-z-_\d\.]+"
 DISPLAY_NAME_KEY = "display_name"
 URL_KEY = "url"
 # Field names used by TaskTagParser.
@@ -189,7 +191,8 @@ class EnumerableTagParser(TagDefinitionFileParser):
 
   Enumerable tag definition files contain a list of all items that tag can be
   set to. A tag file thus has top-level keys (i.e. 'values') and item-level keys
-  (i.e. 'id', 'display_name').
+  (i.e. 'id', 'display_name'). The 'id' field is always required since its value
+  is used in Markdown files for enumerable tags.
 
   Attributes:
     _file_path: absolute path to the YAML file that should be validated.
@@ -256,6 +259,7 @@ class EnumerableTagParser(TagDefinitionFileParser):
       TagDefinitionError:
         - if not all required item-level keys are set.
         - if keys are different from the supported item-level keys.
+        - if the id does not match ID_PATTERN.
     """
     missing_required_field = self.required_item_keys - set(item.keys())
     if missing_required_field:
@@ -265,6 +269,10 @@ class EnumerableTagParser(TagDefinitionFileParser):
     if unsupported_field:
       raise TagDefinitionError(
           f"Unsupported item-level keys: {unsupported_field}.")
+
+    if re.fullmatch(ID_PATTERN, item[ID_KEY]) is None:
+      raise TagDefinitionError(f"The value of an id must match {ID_PATTERN} but"
+                               f" was {item[ID_KEY]}.")
 
   def _validate_yaml_config(self, loaded_yaml: Mapping[str, Any]) -> None:
     """Parses a YAML file and checks that it is supported.

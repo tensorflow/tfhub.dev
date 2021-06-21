@@ -161,8 +161,6 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
     tag_values_validator = yaml_parser.EnumerableTagValuesValidator.from_yaml(
         yaml_config)
 
-    tag_values_validator.validate()
-
     self.assertCountEqual(tag_values_validator.values, [
         yaml_parser.TagValue(id="bert"),
         yaml_parser.TagValue(id="transformer")
@@ -188,25 +186,8 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
     tag_values_validator = yaml_parser.EnumerableTagValuesValidator.from_yaml(
         yaml_config)
 
-    tag_values_validator.validate()
-
     self.assertCountEqual(tag_values_validator.values,
                           [yaml_parser.TagValue(id=id_value)])
-
-  @parameterized.parameters("imageNet", "medline/pubmed")
-  def test_invalid_item_id(self, id_value):
-    yaml_content = textwrap.dedent("""\
-      values:
-        - id: %s
-          display_name: The human-readable name""" % id_value)
-    yaml_config = yaml.safe_load(yaml_content)
-    tag_values_validator = yaml_parser.EnumerableTagValuesValidator.from_yaml(
-        yaml_config)
-
-    with self.assertRaisesWithLiteralMatch(
-        ValueError,
-        fr"The value of an id must match [a-z-\d\.]+ but was {id_value}."):
-      tag_values_validator.validate()
 
   @parameterized.parameters(
       ("dataset", {"dataset_content": SIMPLE_DATASET_CONTENT}, {"mnist"}),

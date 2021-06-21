@@ -197,6 +197,20 @@ class EnumerableTagParserTest(TagDefinitionFileParserTest):
             "Unsupported item-level keys: {'extra_field'}."
     })
 
+  @parameterized.parameters("dataset.yaml", "language.yaml", "license.yaml",
+                            "network_architecture.yaml")
+  def test_invalid_item_id(self, yaml_name):
+    yaml_content = textwrap.dedent("""\
+      values:
+        - id: Bad_id
+          display_name: The human-readable name""")
+    self.set_content(f"tags/{yaml_name}", yaml_content)
+
+    self.assert_validation_returns_correct_dict({
+        f"{self.tmp_dir.full_path}/tags/{yaml_name}":
+            r"The value of an id must match [a-z-_\d\.]+ but was Bad_id."
+    })
+
 
 class TaskFileParserTest(TagDefinitionFileParserTest):
 

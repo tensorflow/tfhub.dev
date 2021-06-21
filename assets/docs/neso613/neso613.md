@@ -2,8 +2,8 @@
 Neha Soni
 
 ## Details
-Neha Soni 
-Product Engineer-EdgeAI
+Neha Soni \
+Product Engineer-EdgeAI \
 Former PA-II at CSIR-CEERI,Pilani
 
 **GitHub:** [neso613](https://github.com/neso613)\

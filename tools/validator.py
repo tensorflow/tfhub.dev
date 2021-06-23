@@ -654,15 +654,6 @@ class DocumentationParser:
         # Icon for publishers.
         self._current_index += 1
         continue
-      if self._lines[self._current_index].startswith(
-          "[![Open Colab notebook]]"):
-        # Colab.
-        self._current_index += 1
-        continue
-      if self._lines[self._current_index].startswith("[![Open Demo]]"):
-        # Demo button.
-        self._current_index += 1
-        continue
       # Not an empty line and not expected metadata.
       raise MarkdownDocumentationError(
           f"Unexpected line found: '{self._lines[self._current_index]}'. "

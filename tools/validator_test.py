@@ -638,7 +638,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(
       ("Open Colab notebook", "https://colab.research.google.com"),
       ("Open Demo", "https://teachablemachine.withgoogle.com/train/pose"))
-  def test_markdown_buttons(self, button_text, button_value):
+  def test_fail_on_deprecated_markdown_buttons(self, button_text, button_value):
     content = textwrap.dedent(f"""\
       # Module google/text-embedding-model/1
       One line description.
@@ -653,8 +653,11 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.set_content("root/assets/docs/google/models/model/1.md", content)
     self.set_up_publisher_page("google")
 
-    validator.validate_documentation_dir(
-        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        rf".*Unexpected line found: '\[!\[{button_text}"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_module_type(self):
     content = textwrap.dedent("""\

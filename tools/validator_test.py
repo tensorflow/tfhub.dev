@@ -671,8 +671,10 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.set_content("root/assets/docs/google/models/model/1.md", content)
     self.set_up_publisher_page("google")
 
-    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                ".*metadata has to start with.*"):
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        "The 'task' metadata has to start with any of 'image-', 'text', "
+        "'audio-', 'video-', but is: 'something-embedding'"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 

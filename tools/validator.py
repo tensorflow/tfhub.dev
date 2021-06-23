@@ -267,10 +267,10 @@ class ParsingPolicy:
     if TASK_KEY in metadata:
       allowed_prefixes = ["image-", "text-", "audio-", "video-"]
       for value in metadata[TASK_KEY]:
-        if all([not value.startswith(prefix) for prefix in allowed_prefixes]):
+        if not value.startswith(tuple(allowed_prefixes)):
           raise MarkdownDocumentationError(
               "The 'task' metadata has to start with any of 'image-'"
-              ", 'text', 'audio-', 'video-', but is: '{value}'")
+              f", 'text', 'audio-', 'video-', but is: '{value}'")
 
   def _assert_correct_tag_values(
       self, metadata: Mapping[str, AbstractSet[str]],

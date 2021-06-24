@@ -93,10 +93,8 @@ METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
 # Dict keys that map to the specified metadata values of the Markdown files.
 ARCHITECTURE_KEY = "network-architecture"
 ASSET_PATH_KEY = "asset-path"
-# TODO(b/182137324): Validate the tag values as specified in colab.yaml.
 COLAB_KEY = "colab"
 DATASET_KEY = "dataset"
-# TODO(b/182137324): Validate the tag values as specified in demo.yaml.
 DEMO_KEY = "demo"
 FINE_TUNABLE_KEY = "fine-tunable"
 FORMAT_KEY = "format"

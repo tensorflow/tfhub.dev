@@ -30,6 +30,10 @@ values:
   - id: transformer
     display_name: Transformer"""
 
+COLAB_YAML = """
+format: url
+required_domain: colab.research.google.com"""
+
 DATASET_YAML = """
 values:
   - id: mnist
@@ -37,6 +41,8 @@ values:
   - id: wikipedia
     display_name: Wikipedia"""
 
+DEMO_YAML = """
+format: url"""
 
 LANGUAGE_YAML = """
 values:
@@ -71,7 +77,9 @@ values:
 """
 
 TAG_FILE_NAME_TO_CONTENT_MAP = {
+    "colab.yaml": COLAB_YAML,
     "dataset.yaml": DATASET_YAML,
+    "demo.yaml": DEMO_YAML,
     "interactive_visualizer.yaml": VISUALIZER_YAML,
     "language.yaml": LANGUAGE_YAML,
     "license.yaml": LICENSE_YAML,
@@ -736,7 +744,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
                             TFJS_OPTIONAL_TAG_TEMPLATE,
                             LITE_OPTIONAL_TAG_TEMPLATE)
-  def test_markdown_with_colab_tag(self, template):
+  def test_markdown_with_valid_colab_url(self, template):
     self.set_up_publisher_page("google")
     content = template.format(
         tag_key="colab",
@@ -746,6 +754,22 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
+  @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
+                            TFJS_OPTIONAL_TAG_TEMPLATE,
+                            LITE_OPTIONAL_TAG_TEMPLATE)
+  def test_markdown_with_bad_colab_url_fails(self, template):
+    self.set_up_publisher_page("google")
+    content = template.format(
+        tag_key="colab",
+        tag_value="https://github.com/mycolab.ipynb")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        "URL must lead to domain colab.research.google.com but is github.com"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
   def test_demo_tag_on_tfjs_model(self):
     self.set_up_publisher_page("google")
     content = TFJS_OPTIONAL_TAG_TEMPLATE.format(
@@ -754,6 +778,18 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  def test_demo_tag_on_tfjs_model_with_unsecure_url_fails(self):
+    self.set_up_publisher_page("google")
+    content = TFJS_OPTIONAL_TAG_TEMPLATE.format(
+        tag_key="demo", tag_value="http://the-unsecure-page.com")
+    self.set_content("root/assets/docs/google/models/model/1.md", content)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        "http://the-unsecure-page.com is not an HTTPS URL."):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   @parameterized.parameters(
       ("dataset", "dataset"),

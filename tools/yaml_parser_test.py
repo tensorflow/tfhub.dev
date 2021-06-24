@@ -30,12 +30,19 @@ values:
   - id: transformer
     display_name: Transformer"""
 
+DEFAULT_COLAB_CONTENT = """
+format: url
+required_domain: colab.research.google.com"""
+
 DEFAULT_DATASET_CONTENT = """
 values:
   - id: mnist
     display_name: MNIST
   - id: imagenet
     display_name: ImageNet"""
+
+DEFAULT_DEMO_CONTENT = """
+format: url"""
 
 DEFAULT_LANGUAGE_CONTENT = """
 values:
@@ -111,7 +118,9 @@ class AbstractYamlParserTest(tf.test.TestCase, parameterized.TestCase):
     super(tf.test.TestCase, self).setUp()
     self.tmp_dir = self.create_tempdir()
     self.architecture_key = "network-architecture"
+    self.colab_key = "colab"
     self.dataset_key = "dataset"
+    self.demo_key = "demo"
     self.language_key = "language"
     self.license_key = "license"
     self.task_key = "task"
@@ -119,17 +128,19 @@ class AbstractYamlParserTest(tf.test.TestCase, parameterized.TestCase):
 
   def _create_tag_files(self,
                         architecture_content=DEFAULT_ARCHITECTURE_CONTENT,
+                        colab_content=DEFAULT_COLAB_CONTENT,
                         dataset_content=DEFAULT_DATASET_CONTENT,
+                        demo_content=DEFAULT_DEMO_CONTENT,
                         language_content=DEFAULT_LANGUAGE_CONTENT,
                         license_content=DEFAULT_LICENSE_YAML,
                         task_content=DEFAULT_TASK_CONTENT,
                         visualizer_content=DEFAULT_VISUALIZER_CONTENT):
     for tag_key, content in zip([
-        self.architecture_key, self.dataset_key, self.language_key,
-        self.license_key, self.task_key, self.visualizer_key
+        self.architecture_key, self.colab_key, self.dataset_key, self.demo_key,
+        self.language_key, self.license_key, self.task_key, self.visualizer_key
     ], [
-        architecture_content, dataset_content, language_content,
-        license_content, task_content, visualizer_content
+        architecture_content, colab_content, dataset_content, demo_content,
+        language_content, license_content, task_content, visualizer_content
     ]):
       self.create_tempfile(
           os.path.join(self.tmp_dir, yaml_parser.TAG_TO_YAML_MAP[tag_key]),
@@ -222,6 +233,74 @@ class EnumerableYamlParserTest(AbstractYamlParserTest):
     parser = yaml_parser.EnumerableYamlParser(self.tmp_dir, tag_key)
 
     self.assertEqual(parser._get_supported_values(), expected_values)
+
+
+class UrlYamlParserTest(AbstractYamlParserTest):
+
+  def _assert_url_validation_fails(self, tag_name, parameter_name, yaml_content,
+                                   url, error_message):
+    self._create_tag_files(**{parameter_name: yaml_content})
+    parser = yaml_parser.UrlYamlParser(self.tmp_dir, tag_name)
+
+    # pylint: disable=g-error-prone-assert-raises, "assert" in the
+    # assertRaisesWithLiteralMatch block triggers that linter error.
+    with self.assertRaisesWithLiteralMatch(ValueError, error_message):
+      parser.assert_tag_values_are_correct({url})
+
+
+class ColabYamlParserTest(UrlYamlParserTest):
+
+  @parameterized.parameters(
+      ("required_domain: google.com", "https://page.com",
+       "YAML config should contain `format` key but was "
+       "{'required_domain': 'google.com'}."),
+      ("format: unknown", "https://page.com",
+       "'format' must be one of {'url'} but was unknown."),
+      (DEFAULT_COLAB_CONTENT, "https://page.com]a",
+       "https://page.com]a is no valid URL."),
+      (DEFAULT_COLAB_CONTENT, "http://page.com",
+       "http://page.com is not an HTTPS URL."),
+      (DEFAULT_COLAB_CONTENT, "https://drive.google.com/my_notebook.ipynb",
+       "URL must lead to domain colab.research.google.com but is "
+       "drive.google.com."))
+  def test_colab_url_validation_fails(self, yaml_content, url, error_message):
+    self._assert_url_validation_fails("colab", "colab_content", yaml_content,
+                                      url, error_message)
+
+  def test_valid_colab_url_passes(self):
+    self._create_tag_files()
+    colab_parser = yaml_parser.UrlYamlParser(self.tmp_dir, "colab")
+
+    colab_parser.assert_tag_values_are_correct({
+        "https://colab.research.google.com/github/tensorflow/hub/blob/master/"
+        "examples/colab/wiki40b_lm.ipynb"
+    })
+
+
+class DemoYamlParserTest(UrlYamlParserTest):
+
+  @parameterized.parameters(
+      ("required_domain: google.com", "https://page.com",
+       "YAML config should contain `format` key but was "
+       "{'required_domain': 'google.com'}."),
+      ("format: unknown", "https://page.com",
+       "'format' must be one of {'url'} but was unknown."),
+      (DEFAULT_DEMO_CONTENT, "https://page.com]a",
+       "https://page.com]a is no valid URL."),
+      (DEFAULT_DEMO_CONTENT, "http://page.com",
+       "http://page.com is not an HTTPS URL."))
+  def test_demo_url_validation_fails(self, yaml_content, url, error_message):
+    self._assert_url_validation_fails("demo", "demo_content", yaml_content,
+                                      url, error_message)
+
+  @parameterized.parameters(
+      ("https://storage.googleapis.com/tfjs-models/demos/pose-detection"),
+      ("https://teachablemachine.withgoogle.com/train/pose"))
+  def test_validating_valid_demo_url_passes(self, url):
+    self._create_tag_files()
+    demo_parser = yaml_parser.UrlYamlParser(self.tmp_dir, "demo")
+
+    demo_parser.assert_tag_values_are_correct({url})
 
 
 if __name__ == "__main__":

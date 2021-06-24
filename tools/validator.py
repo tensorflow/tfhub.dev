@@ -35,7 +35,8 @@ import os
 import re
 import subprocess
 import sys
-from typing import AbstractSet, Mapping, MutableSequence
+import textwrap
+from typing import AbstractSet, Mapping, MutableSequence, Optional, Type, TypeVar
 
 from absl import app
 from absl import logging
@@ -123,6 +124,8 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
 TARFILE_SUFFIX = ".tar.gz"
 TFLITE_SUFFIX = ".tflite"
 
+ParsingPolicyType = TypeVar("ParsingPolicyType", bound="ParsingPolicy")
+
 
 class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
@@ -171,21 +174,68 @@ class ValidationConfig:
   do_smoke_test: bool = False
 
 
-class ParsingPolicy:
+class ParsingPolicy(metaclass=abc.ABCMeta):
   """The base class for type specific parsing policies.
 
   Documentation files for models, placeholders, publishers and collections share
   a publisher field, a readable name, a correct file path etc.
   """
 
-  def __init__(self, publisher: str, model_name: str, model_version: str,
-               required_metadata: MutableSequence[str],
-               optional_metadata: MutableSequence[str]) -> None:
+  def __init__(self,
+               yaml_parser: yaml_parser_lib.YamlParser,
+               publisher: str,
+               model_name: str,
+               model_version: str,
+               required_metadata: AbstractSet[str],
+               optional_metadata: AbstractSet[str],
+               supported_asset_path_suffix: Optional[str] = None) -> None:
+    """Initializes a ParsingPolicy instance for validating a document.
+
+    Args:
+      yaml_parser: A yaml_parser_lib.YamlParser instance to be used for
+        accessing allowed metadata values from the YAML config files.
+      publisher: The name of the publisher of the model e.g. 'Google'.
+      model_name: The name of the model e.g. 'ALBERT'.
+      model_version: The version of the model e.g. '1'.
+      required_metadata: Set of strings containing the required tag names that
+        need to be set in the Markdown document e.g. {"asset-path"}.
+      optional_metadata: Set of strings containing the optional tag names that
+        can be set in the Markdown document e.g. {"dataset"}.
+      supported_asset_path_suffix: Optional; The file ending of the 'asset-path'
+        tag, if that tag needs to be set.
+    """
+    self._yaml_parser = yaml_parser
     self._publisher = publisher
     self._model_name = model_name
     self._model_version = model_version
     self._required_metadata = required_metadata
     self._optional_metadata = optional_metadata
+    self._supported_asset_path_suffix = supported_asset_path_suffix
+
+  @classmethod
+  def from_string(cls: Type[ParsingPolicyType], first_line: str,
+                  yaml_parser: yaml_parser_lib.YamlParser) -> ParsingPolicyType:
+    """Returns an appropriate ParsingPolicy instance for the Markdown string."""
+    for pattern, policy in POLICY_BY_PATTERN.items():
+      match = re.fullmatch(pattern, first_line)
+      if not match:
+        continue
+      groups = match.groupdict()
+      return policy(yaml_parser, groups.get("publisher"), groups.get("name"),
+                    groups.get("vers"))
+    raise MarkdownDocumentationError(
+        textwrap.dedent(f"""\
+      First line of the documentation file must match one of the following
+      formats depending on the MD type:
+      TF Model: {MODEL_HANDLE_PATTERN}
+      TFJS: {TFJS_HANDLE_PATTERN}
+      Lite: {LITE_HANDLE_PATTERN}
+      Coral: {CORAL_HANDLE_PATTERN}
+      Publisher: {PUBLISHER_HANDLE_PATTERN}
+      Collection: {COLLECTION_HANDLE_PATTERN}
+      Placeholder: {PLACEHOLDER_HANDLE_PATTERN}
+      For example '# Module google/text-embedding-model/1'. Instead the first
+      line is '{first_line}'"""))
 
   @property
   @abc.abstractmethod
@@ -194,19 +244,13 @@ class ParsingPolicy:
     raise NotImplementedError
 
   @property
-  @abc.abstractmethod
-  def supported_asset_path_suffix(self) -> str:
-    """String describing the supported file ending of the compressed file."""
-    raise NotImplementedError
-
-  @property
   def publisher(self) -> str:
     return self._publisher
 
   @property
-  def supported_metadata(self) -> MutableSequence[str]:
+  def supported_metadata(self) -> AbstractSet[str]:
     """Return which metadata tags are supported."""
-    return self._required_metadata + self._optional_metadata
+    return set.union(self._required_metadata, self._optional_metadata)
 
   def get_top_level_dir(self, root_dir: str) -> str:
     """Returns the top level publisher directory."""
@@ -223,6 +267,29 @@ class ParsingPolicy:
           "Documentation file is not on a correct path. Documentation for a "
           f"{self.type_name} with publisher '{self._publisher}' should be "
           f"placed in the publisher directory: '{publisher_dir}'")
+
+  def validate_asset_path(self, validation_config: ValidationConfig,
+                          metadata: Mapping[str, AbstractSet[str]],
+                          file_path: str) -> None:
+    """Checks whether the 'asset-path' tag is valid, if it is set.
+
+    Not all documentation files set the 'asset-path' tag but if they do, the tag
+    should be checked for being valid. This method does not validate the tag
+    while ModelParsingPolicy overwrites this method since model files need to
+    set the 'asset-path' tag. In that case, its value needs to have the correct
+    file ending, must not be forbidden by GitHubs robots.txt file etc.
+
+    Args:
+      validation_config: The config specifying whether the referenced asset
+        should be downloaded. That should only be used for validating individual
+        files.
+      metadata: Mapping of metadata fields to their values e.g.
+        {"asset-path": {"model.tar.gz"}}
+      file_path: Path to the validated file
+    """
+    del validation_config, metadata, file_path
+    logging.info("Skipping validating 'asset-path' tag since the tag is not "
+                 "supported.")
 
   def _assert_can_resolve_asset(self, asset_path: str) -> None:
     """Check whether the asset path can be resolved."""
@@ -273,14 +340,12 @@ class ParsingPolicy:
               f", 'text', 'audio-', 'video-', but is: '{value}'")
 
   def _assert_correct_tag_values(
-      self, metadata: Mapping[str, AbstractSet[str]],
-      yaml_parser: yaml_parser_lib.YamlParser) -> None:
+      self, metadata: Mapping[str, AbstractSet[str]]) -> None:
     """Checks that all tag values are defined in the respective YAML files.
 
     Args:
       metadata: Mapping of metadata fields to their values e.g.
                 {"language": {"en", "fr"}}.
-      yaml_parser: YamlParser containing all supported tag values.
 
     Raises:
       MarkdownDocumentationError: if a tag key contains elements in its set that
@@ -294,7 +359,7 @@ class ParsingPolicy:
       if tag_name not in metadata:
         continue
 
-      supported_values = yaml_parser.get_supported_values(tag_name)
+      supported_values = self._yaml_parser.get_supported_values(tag_name)
       unsupported_values = metadata[tag_name] - supported_values
       if unsupported_values:
         raise MarkdownDocumentationError(
@@ -302,18 +367,42 @@ class ParsingPolicy:
             f"{sorted(unsupported_values)}. Please add them to "
             f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
 
-  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
-                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
+  def assert_correct_metadata(self,
+                              metadata: Mapping[str, AbstractSet[str]]) -> None:
     """Asserts that correct metadata is present."""
     self._assert_metadata_contains_required_fields(metadata)
     self._assert_metadata_contains_supported_fields(metadata)
     self._assert_no_duplicate_metadata(metadata)
     self._assert_correct_module_types(metadata)
-    self._assert_correct_tag_values(metadata, yaml_parser)
+    self._assert_correct_tag_values(metadata)
 
-  def assert_correct_asset_path(self, validation_config: ValidationConfig,
-                                metadata: Mapping[str, AbstractSet[str]],
-                                file_path: str) -> None:
+
+class ModelParsingPolicy(ParsingPolicy):
+  """Base class for additionally validating the 'asset-path' tag for models.
+
+  In constrast to Markdown files for collections, publishers, and placeholders,
+  SavedModel/Tfjs/Lite/Coral documentation needs to specify an 'asset-path' tag,
+  which should point to a world-readable location and end in a model-specific
+  suffix like '.tar.gz' or '.tflite'.
+  """
+
+  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
+               model_name: str, model_version: str,
+               required_metadata: AbstractSet[str],
+               optional_metadata: AbstractSet[str],
+               supported_asset_path_suffix: str) -> None:
+    super().__init__(
+        yaml_parser,
+        publisher,
+        model_name,
+        model_version,
+        required_metadata,
+        optional_metadata,
+        supported_asset_path_suffix=supported_asset_path_suffix)
+
+  def validate_asset_path(self, validation_config: ValidationConfig,
+                          metadata: Mapping[str, AbstractSet[str]],
+                          file_path: str) -> None:
     """Checks whether the given asset path can be downloaded.
 
     If an asset path is added or modified, the function checks whether the path
@@ -336,9 +425,6 @@ class ParsingPolicy:
         - if github.com/robots.txt forbids downloading the asset.
         - if the asset can be downloaded but not be resolved to a SavedModel.
     """
-    if ASSET_PATH_KEY not in metadata:
-      return
-
     if not _is_asset_path_modified(file_path):
       logging.info("Skipping asset path validation since the tag is not added "
                    "or modified.")
@@ -349,10 +435,10 @@ class ParsingPolicy:
           "No more than one asset-path tag may be specified.")
 
     asset_path = list(metadata[ASSET_PATH_KEY])[0]
-    if not asset_path.endswith(self.supported_asset_path_suffix):
+    if not asset_path.endswith(self._supported_asset_path_suffix):
       raise MarkdownDocumentationError(
-          f"Expected asset-path to end with {self.supported_asset_path_suffix} "
-          f"but was {asset_path}.")
+          f"Expected asset-path to end with {self._supported_asset_path_suffix}"
+          f" but was {asset_path}.")
 
     # GitHub's robots.txt disallows fetches to */download, which means that
     # the asset-path URL cannot be fetched. Markdown validation should fail if
@@ -372,16 +458,15 @@ class ParsingPolicy:
 class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
-  def __init__(self, publisher: str, model_name: str,
-               model_version: str) -> None:
+  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
+               model_name: str, model_version: str) -> None:
     super(CollectionParsingPolicy, self).__init__(
+        yaml_parser,
         publisher,
         model_name,
         model_version,
-        required_metadata=[TASK_KEY],
-        optional_metadata=[
-            DATASET_KEY, LANGUAGE_KEY, ARCHITECTURE_KEY,
-        ])
+        required_metadata={TASK_KEY},
+        optional_metadata={DATASET_KEY, LANGUAGE_KEY, ARCHITECTURE_KEY})
 
   @property
   def type_name(self) -> str:
@@ -391,47 +476,46 @@ class CollectionParsingPolicy(ParsingPolicy):
 class PlaceholderParsingPolicy(ParsingPolicy):
   """ParsingPolicy for placeholder files."""
 
-  def __init__(self, publisher: str, model_name: str,
-               model_version: str) -> None:
+  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
+               model_name: str, model_version: str) -> None:
     super(PlaceholderParsingPolicy, self).__init__(
+        yaml_parser,
         publisher,
         model_name,
         model_version,
-        required_metadata=[TASK_KEY],
-        optional_metadata=[
+        required_metadata={TASK_KEY},
+        optional_metadata={
             DATASET_KEY, FINE_TUNABLE_KEY, VISUALIZER_KEY, LANGUAGE_KEY,
             LICENSE_KEY, ARCHITECTURE_KEY
-        ])
+        })
 
   @property
   def type_name(self) -> str:
     return "Placeholder"
 
 
-class SavedModelParsingPolicy(ParsingPolicy):
+class SavedModelParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for SavedModel documentation."""
 
-  def __init__(self, publisher: str, model_name: str,
-               model_version: str) -> None:
+  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
+               model_name: str, model_version: str) -> None:
     super(SavedModelParsingPolicy, self).__init__(
+        yaml_parser,
         publisher,
         model_name,
         model_version,
-        required_metadata=[
+        required_metadata={
             ASSET_PATH_KEY, FINE_TUNABLE_KEY, FORMAT_KEY, TASK_KEY
-        ],
-        optional_metadata=[
+        },
+        optional_metadata={
             ARCHITECTURE_KEY, COLAB_KEY, DATASET_KEY, LANGUAGE_KEY, LICENSE_KEY,
             VISUALIZER_KEY
-        ])
+        },
+        supported_asset_path_suffix=TARFILE_SUFFIX)
 
   @property
   def type_name(self) -> str:
     return "Module"
-
-  @property
-  def supported_asset_path_suffix(self) -> str:
-    return TARFILE_SUFFIX
 
   def _assert_can_resolve_asset(self, asset_path: str) -> None:
     """Attempts to hub.resolve the given asset path."""
@@ -447,9 +531,9 @@ class SavedModelParsingPolicy(ParsingPolicy):
           "https://www.tensorflow.org/hub/exporting_tf2_saved_model. "
           f"Underlying reason for failure: {e}.")
 
-  def assert_correct_metadata(self, metadata: Mapping[str, AbstractSet[str]],
-                              yaml_parser: yaml_parser_lib.YamlParser) -> None:
-    super().assert_correct_metadata(metadata, yaml_parser)
+  def assert_correct_metadata(self,
+                              metadata: Mapping[str, AbstractSet[str]]) -> None:
+    super().assert_correct_metadata(metadata)
 
     format_value = list(metadata.get(FORMAT_KEY, ""))[0]
     if format_value not in SAVED_MODEL_FORMATS:
@@ -458,46 +542,42 @@ class SavedModelParsingPolicy(ParsingPolicy):
           f"but was '{format_value}'.")
 
 
-class TfjsParsingPolicy(ParsingPolicy):
+class TfjsParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for TF.js documentation."""
 
-  def __init__(self, publisher: str, model_name: str,
-               model_version: str) -> None:
+  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
+               model_name: str, model_version: str) -> None:
     super(TfjsParsingPolicy, self).__init__(
+        yaml_parser,
         publisher,
         model_name,
         model_version,
-        required_metadata=[ASSET_PATH_KEY, PARENT_MODEL_KEY],
-        optional_metadata=[COLAB_KEY, DEMO_KEY, VISUALIZER_KEY])
+        required_metadata={ASSET_PATH_KEY, PARENT_MODEL_KEY},
+        optional_metadata={COLAB_KEY, DEMO_KEY, VISUALIZER_KEY},
+        supported_asset_path_suffix=TARFILE_SUFFIX)
 
   @property
   def type_name(self) -> str:
     return "Tfjs"
 
-  @property
-  def supported_asset_path_suffix(self) -> str:
-    return TARFILE_SUFFIX
 
-
-class LiteParsingPolicy(ParsingPolicy):
+class LiteParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for TFLite documentation."""
 
-  def __init__(self, publisher: str, model_name: str,
-               model_version: str) -> None:
+  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
+               model_name: str, model_version: str) -> None:
     super(LiteParsingPolicy, self).__init__(
+        yaml_parser,
         publisher,
         model_name,
         model_version,
-        required_metadata=[ASSET_PATH_KEY, PARENT_MODEL_KEY],
-        optional_metadata=[COLAB_KEY, VISUALIZER_KEY])
+        required_metadata={ASSET_PATH_KEY, PARENT_MODEL_KEY},
+        optional_metadata={COLAB_KEY, VISUALIZER_KEY},
+        supported_asset_path_suffix=TFLITE_SUFFIX)
 
   @property
   def type_name(self) -> str:
     return "Lite"
-
-  @property
-  def supported_asset_path_suffix(self) -> str:
-    return TFLITE_SUFFIX
 
 
 class CoralParsingPolicy(LiteParsingPolicy):
@@ -516,11 +596,13 @@ class PublisherParsingPolicy(ParsingPolicy):
   """
 
   def __init__(self,
+               yaml_parser: yaml_parser_lib.YamlParser,
                publisher: str,
                model_name: str = "",
                model_version: str = "") -> None:
-    super(PublisherParsingPolicy, self).__init__(publisher, model_name,
-                                                 model_version, [], [])
+    super(PublisherParsingPolicy,
+          self).__init__(yaml_parser, publisher, model_name, model_version,
+                         set(), set())
 
   @property
   def type_name(self) -> str:
@@ -544,9 +626,11 @@ class PublisherParsingPolicy(ParsingPolicy):
 class DocumentationParser:
   """Class used for parsing model documentation strings."""
 
-  def __init__(self, root_dir: str, documentation_dir: str) -> None:
+  def __init__(self, root_dir: str, documentation_dir: str,
+               yaml_parser: yaml_parser_lib.YamlParser) -> None:
     self._root_dir = root_dir
     self._documentation_dir = documentation_dir
+    self._yaml_parser = yaml_parser
     self._parsed_metadata = dict()
     self._parsed_description = ""
     self._file_path = ""
@@ -565,43 +649,11 @@ class DocumentationParser:
   def _raise_error(self, message: str) -> None:
     raise MarkdownDocumentationError(message)
 
-  def _get_policy_from_first_line(self, first_line: str) -> ParsingPolicy:
-    """Returns an appropriate ParsingPolicy instance for the first line."""
-    patterns_and_policies = [
-        (MODEL_HANDLE_PATTERN, SavedModelParsingPolicy),
-        (PLACEHOLDER_HANDLE_PATTERN, PlaceholderParsingPolicy),
-        (LITE_HANDLE_PATTERN, LiteParsingPolicy),
-        (TFJS_HANDLE_PATTERN, TfjsParsingPolicy),
-        (CORAL_HANDLE_PATTERN, CoralParsingPolicy),
-        (PUBLISHER_HANDLE_PATTERN, PublisherParsingPolicy),
-        (COLLECTION_HANDLE_PATTERN, CollectionParsingPolicy),
-    ]
-    for pattern, policy in patterns_and_policies:
-      match = re.match(pattern, first_line)
-      if not match:
-        continue
-      groups = match.groupdict()
-      return policy(
-          groups.get("publisher"), groups.get("name"), groups.get("vers"))
-    # pytype: disable=bad-return-type
-    self._raise_error(
-        "First line of the documentation file must match one of the following "
-        "formats depending on the MD type:\n"
-        f"TF Model: {MODEL_HANDLE_PATTERN}\n"
-        f"TFJS: {TFJS_HANDLE_PATTERN}\n"
-        f"Lite: {LITE_HANDLE_PATTERN}\n"
-        f"Coral: {CORAL_HANDLE_PATTERN}\n"
-        f"Publisher: {PUBLISHER_HANDLE_PATTERN}\n"
-        f"Collection: {COLLECTION_HANDLE_PATTERN}\n"
-        f"Placeholder: {PLACEHOLDER_HANDLE_PATTERN}\n"
-        "For example '# Module google/text-embedding-model/1'. Instead the "
-        f"first line is '{first_line}'")
-    # pytype: enable=bad-return-type
-
   def _assert_publisher_page_exists(self) -> None:
     """Asserts that publisher page exists for the publisher of this model."""
     # Use a publisher policy to get the expected documentation page path.
-    publisher_policy = PublisherParsingPolicy(self.policy.publisher)
+    publisher_policy = PublisherParsingPolicy(self._yaml_parser,
+                                              self.policy.publisher)
     expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
         self._documentation_dir)
     if not tf.io.gfile.exists(expected_publisher_doc_file_path):
@@ -661,14 +713,14 @@ class DocumentationParser:
           "https://www.tensorflow.org/hub/writing_model_documentation for "
           "information about markdown format.")
 
-  def validate(self, validation_config: ValidationConfig, file_path: str,
-               yaml_parser: yaml_parser_lib.YamlParser) -> None:
+  def validate(self, validation_config: ValidationConfig,
+               file_path: str) -> None:
     """Validate one documentation markdown file."""
     self._file_path = file_path
     raw_content = filesystem_utils.get_content(self._file_path)
     self._lines = raw_content.split("\n")
     first_line = self._lines[0].replace("&zwnj;", "")
-    self.policy = self._get_policy_from_first_line(first_line)
+    self.policy = ParsingPolicy.from_string(first_line, self._yaml_parser)
 
     try:
       self.policy.assert_correct_file_path(self._file_path,
@@ -677,11 +729,10 @@ class DocumentationParser:
       self._consume_description()
       # Populate _parsed_metadata with the metadata tag mapping
       self._consume_metadata()
-      self.policy.assert_correct_metadata(self._parsed_metadata, yaml_parser)
+      self.policy.assert_correct_metadata(self._parsed_metadata)
       if not validation_config.skip_asset_check:
-        self.policy.assert_correct_asset_path(validation_config,
-                                              self._parsed_metadata,
-                                              self._file_path)
+        self.policy.validate_asset_path(validation_config,
+                                        self._parsed_metadata, self._file_path)
     except MarkdownDocumentationError as e:
       self._raise_error(str(e))
     self._assert_publisher_page_exists()
@@ -744,11 +795,11 @@ def validate_documentation_files(validation_config: ValidationConfig,
 
   for file_path in files_to_validate:
     logging.info("Validating %s.", file_path)
-    documentation_parser = DocumentationParser(root_dir, documentation_dir)
+    documentation_parser = DocumentationParser(root_dir, documentation_dir,
+                                               yaml_parser)
     try:
       absolute_path = os.path.join(documentation_dir, file_path)
-      documentation_parser.validate(validation_config, absolute_path,
-                                    yaml_parser)
+      documentation_parser.validate(validation_config, absolute_path)
       validated += 1
     except MarkdownDocumentationError as e:
       file_to_error[file_path] = str(e)
@@ -762,6 +813,16 @@ def validate_documentation_files(validation_config: ValidationConfig,
         f"Found the following errors: {file_to_error}")
   logging.info("Found %d matching files - all validated successfully.",
                validated)
+
+POLICY_BY_PATTERN = {
+    MODEL_HANDLE_PATTERN: SavedModelParsingPolicy,
+    PLACEHOLDER_HANDLE_PATTERN: PlaceholderParsingPolicy,
+    LITE_HANDLE_PATTERN: LiteParsingPolicy,
+    TFJS_HANDLE_PATTERN: TfjsParsingPolicy,
+    CORAL_HANDLE_PATTERN: CoralParsingPolicy,
+    PUBLISHER_HANDLE_PATTERN: PublisherParsingPolicy,
+    COLLECTION_HANDLE_PATTERN: CollectionParsingPolicy
+}
 
 
 def main(_):

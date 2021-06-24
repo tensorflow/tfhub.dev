@@ -23,6 +23,13 @@ import tensorflow as tf
 import validator
 import yaml_parser
 
+ARCHITECTURE_YAML = """
+values:
+  - id: bert
+    display_name: BERT
+  - id: transformer
+    display_name: Transformer"""
+
 DATASET_YAML = """
 values:
   - id: mnist
@@ -30,12 +37,6 @@ values:
   - id: wikipedia
     display_name: Wikipedia"""
 
-ARCHITECTURE_YAML = """
-values:
-  - id: bert
-    display_name: BERT
-  - id: transformer
-    display_name: Transformer"""
 
 LANGUAGE_YAML = """
 values:
@@ -70,12 +71,12 @@ values:
 """
 
 TAG_FILE_NAME_TO_CONTENT_MAP = {
-    "network_architecture.yaml": ARCHITECTURE_YAML,
     "dataset.yaml": DATASET_YAML,
+    "interactive_visualizer.yaml": VISUALIZER_YAML,
     "language.yaml": LANGUAGE_YAML,
     "license.yaml": LICENSE_YAML,
-    "task.yaml": TASK_YAML,
-    "interactive_visualizer.yaml": VISUALIZER_YAML
+    "network_architecture.yaml": ARCHITECTURE_YAML,
+    "task.yaml": TASK_YAML
 }
 
 LEGACY_VALUE = "legacy"
@@ -285,6 +286,28 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     model = MultiplyTimesTwoModel()
     tf.saved_model.save(model, path)
+
+  @parameterized.parameters(
+      ("# Module google/ALBERT/1", validator.SavedModelParsingPolicy),
+      ("# Placeholder google/ALBERT/1", validator.PlaceholderParsingPolicy),
+      ("# Lite google/ALBERT/1", validator.LiteParsingPolicy),
+      ("# Tfjs google/ALBERT/1", validator.TfjsParsingPolicy),
+      ("# Coral google/ALBERT/1", validator.CoralParsingPolicy),
+      ("# Publisher google", validator.PublisherParsingPolicy),
+      ("# Collection google/experts/1", validator.CollectionParsingPolicy))
+  def test_get_policy_from_string(self, document_string, expected_policy):
+    self.assertIsInstance(
+        validator.ParsingPolicy.from_string(
+            document_string, yaml_parser.YamlParser(self.tmp_root_dir)),
+        expected_policy)
+
+  def test_fail_getting_policy_from_unknown_string(self):
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        ".*Instead the first\nline is '# Newmodel google/ALBERT/1'"):
+      validator.ParsingPolicy.from_string(
+          "# Newmodel google/ALBERT/1",
+          yaml_parser.YamlParser(self.tmp_root_dir))
 
   def test_markdown_parsed_saved_model(self):
     empty_second_line = textwrap.dedent(f"""\
@@ -565,12 +588,11 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
     documentation_parser = validator.DocumentationParser(
-        self.tmp_root_dir, self.tmp_docs_dir)
-    parser = yaml_parser.YamlParser(self.tmp_root_dir)
+        self.tmp_root_dir, self.tmp_docs_dir,
+        yaml_parser.YamlParser(self.tmp_root_dir))
 
     documentation_parser.validate(
         validation_config=self.validation_config,
-        yaml_parser=parser,
         file_path=self.get_full_path(
             "root/assets/docs/google/models/text-embedding-model/1.md"))
 
@@ -799,13 +821,12 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     with open(os.path.join(self.model_path, ".invalid_file"), "w") as bad_file:
       bad_file.write("This file shouldn't be here")
     documentation_parser = validator.DocumentationParser(
-        self.tmp_root_dir, self.tmp_docs_dir)
+        self.tmp_root_dir, self.tmp_docs_dir, parser)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 r"Invalid filepath.*\.invalid_file"):
       documentation_parser.validate(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
-          yaml_parser=parser,
           file_path=self.get_full_path(
               "root/assets/docs/google/models/text-embedding-model/1.md"))
 

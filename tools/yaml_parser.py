@@ -14,33 +14,65 @@
 # ==============================================================================
 """Helper utilities to load tags from YAML files."""
 
+import abc
 import collections
 import os
-from typing import AbstractSet, Any, Mapping, TypeVar, Sequence, Type
+from typing import AbstractSet, Any, Mapping, Sequence, Type, TypeVar
 
 import attr
 import yaml
 
-# Maps a tag name to the YAML file path where supported values are configured.
+# Maps a tag name to the YAML file that contains the config for valid values.
 TAG_TO_YAML_MAP = collections.OrderedDict({
     "dataset": "tags/dataset.yaml",
+    "interactive-model-name": "tags/interactive_visualizer.yaml",
     "language": "tags/language.yaml",
-    "task": "tags/task.yaml",
-    "network-architecture": "tags/network_architecture.yaml",
     "license": "tags/license.yaml",
-    "interactive-model-name": "tags/interactive_visualizer.yaml"
+    "network-architecture": "tags/network_architecture.yaml",
+    "task": "tags/task.yaml"
 })
 
-# Field names in the used YAML config files.
-ID_KEY = "id"
-VALUES_KEY = "values"
+# Field names in the enumerable YAML config files.
+_ID_KEY = "id"
+_VALUES_KEY = "values"
 
+AbstractYamlParserType = TypeVar(
+    "AbstractYamlParserType", bound="AbstractYamlParser")
 EnumerableTagValuesValidatorType = TypeVar(
     "EnumerableTagValuesValidatorType", bound="EnumerableTagValuesValidator")
 
 
+class AbstractYamlParser(metaclass=abc.ABCMeta):
+  """Validates tag values depending on their tag type."""
+
+  def __init__(self, root_dir: str, tag_name: str) -> None:
+    self._root_dir = root_dir
+    self._tag_name = tag_name
+    self._relative_tag_file = TAG_TO_YAML_MAP[self._tag_name]
+
+  @classmethod
+  def from_tag_name(cls: Type[AbstractYamlParserType], root_dir: str,
+                    tag_name: str) -> AbstractYamlParserType:
+    """Builds an YamlParser from the root dir and the tag name."""
+    parser_type_from_tag_name = {
+        "dataset": EnumerableYamlParser,
+        "interactive-model-name": EnumerableYamlParser,
+        "language": EnumerableYamlParser,
+        "license": EnumerableYamlParser,
+        "network-architecture": EnumerableYamlParser,
+        "task": EnumerableYamlParser,
+    }
+    if tag_name not in parser_type_from_tag_name:
+      raise ValueError(f"No supported parser found for tag {tag_name}.")
+    return parser_type_from_tag_name[tag_name](root_dir, tag_name)
+
+  @abc.abstractmethod
+  def assert_tag_values_are_correct(self, tag_values: AbstractSet[str]) -> None:
+    """Checks that the given tag values are valid."""
+
+
 @attr.s(auto_attribs=True)
-class TagValue:
+class EnumerableTagValue:
   """Representation of a single tag value.
 
   Attributes:
@@ -59,7 +91,7 @@ class EnumerableTagValuesValidator:
   Attributes:
     values: Sequence containing the possible TagValues a tag can be set to.
   """
-  values: Sequence[TagValue]
+  values: Sequence[EnumerableTagValue]
 
   @classmethod
   def from_yaml(
@@ -79,68 +111,68 @@ class EnumerableTagValuesValidator:
         - if a tag item within yaml_config does not contain an `id` field.
     """
 
-    if VALUES_KEY not in yaml_config:
-      raise ValueError(f"YAML config should contain `{VALUES_KEY}` key "
+    if _VALUES_KEY not in yaml_config:
+      raise ValueError(f"YAML config should contain `{_VALUES_KEY}` key "
                        f"but was {yaml_config}.")
 
     values = list()
-    for item in yaml_config[VALUES_KEY]:
-      if ID_KEY not in item:
-        raise ValueError(f"A tag item must contain an `{ID_KEY}` field but was "
-                         f"{item}.")
-      values.append(TagValue(id=item[ID_KEY]))
+    for item in yaml_config[_VALUES_KEY]:
+      if _ID_KEY not in item:
+        raise ValueError(f"A tag item must contain an `{_ID_KEY}` field "
+                         f" but was {item}.")
+      values.append(EnumerableTagValue(id=item[_ID_KEY]))
     return cls(values)
 
 
-class YamlParser:
-  """Loads supported tags from the YAML config files.
+class EnumerableYamlParser(AbstractYamlParser):
+  """Checks that given tag values match supported values from the YAML file."""
 
-     Attributes:
-       root_dir: An absolute path to the root directory of the project.
-       supported_values_map: An OrderedDict that maps from a tag name to all
-         supported ids like:
-         {"dataset": {"mnist", "imagenet"}, "language": {"en", "fr"}}.
-  """
-
-  def __init__(self, root_dir: str) -> None:
-    """Creates a YamlParser by passing the absolute path to the root dir."""
-    self._root_dir = root_dir
-    self._supported_values_map = None
+  def __init__(self, root_dir: str, tag_name: str) -> None:
+    super().__init__(root_dir, tag_name)
+    self._supported_values = None
 
   def _load_supported_values(self) -> None:
-    """Loads the supported values for each tag from the respective YAML file.
+    """Loads the supported values for the tag from the respective YAML file.
 
     Raises:
-      FileNotFoundError: if a YAML file does not exist.
-      yaml.parser.ParserError: if a YAML file is no valid YAML file.
-      ValueError: if a YAML file contains unsupported values.
+      FileNotFoundError: if the YAML file does not exist.
+      yaml.parser.ParserError: if the YAML file is no valid YAML file.
+      ValueError:
+        - if the YAML file does not contain a `values` field.
+        - if the YAML file contains an item that does not have an `id` field.
     """
-    supported_values_map = collections.OrderedDict()
-    for tag_name, yaml_path in TAG_TO_YAML_MAP.items():
-      with open(os.path.join(self._root_dir, yaml_path)) as yaml_file:
-        yaml_config = yaml.safe_load(yaml_file.read())
-      tag_validator = EnumerableTagValuesValidator.from_yaml(yaml_config)
-      supported_values_map[tag_name] = {
-          item.id for item in tag_validator.values
-      }
-    self._supported_values_map = supported_values_map
+    with open(os.path.join(self._root_dir,
+                           self._relative_tag_file)) as yaml_file:
+      yaml_config = yaml.safe_load(yaml_file.read())
+    tag_validator = EnumerableTagValuesValidator.from_yaml(yaml_config)
+    self._supported_values = {item.id for item in tag_validator.values}
 
-  def get_supported_values(self, tag_name: str) -> AbstractSet[str]:
-    """Returns the supported values for a given Markdown tag.
+  def _get_supported_values(self) -> AbstractSet[str]:
+    """Returns the supported values that were loaded from the YAML file."""
+    if self._supported_values is None:
+      self._load_supported_values()
+    return self._supported_values
+
+  def assert_tag_values_are_correct(self, tag_values: AbstractSet[str]) -> None:
+    """Checks that the tag values belong to `id` fields in the YAML file.
 
     Args:
-      tag_name: Key of a Markdown tag e.g. "dataset" or "language".
-
-    Returns:
-      Set of ids that are defined in the respective YAML config file.
+      tag_values: Set of strings that should be validated against the YAML file
+        belonging to this parser.
 
     Raises:
-      ValueError: if `tag_name` has no supported values configured in a YAML
-        file.
+      FileNotFoundError: if the YAML file does not exist.
+      yaml.parser.ParserError: if the YAML file is no valid YAML file.
+      ValueError:
+        - if the YAML file does not contain a `values` field.
+        - if the YAML file contains an item that does not have an `id` field.
+        - if `tag_values` contains values different from those specified in the
+          YAML file of this parser.
     """
-    if self._supported_values_map is None:
-      self._load_supported_values()
-
-    if tag_name not in self._supported_values_map:
-      raise ValueError(f"No supported ids found for tag {tag_name}.")
-    return self._supported_values_map[tag_name]
+    supported_values = self._get_supported_values()
+    unsupported_values = tag_values - supported_values
+    if unsupported_values:
+      raise ValueError(
+          f"Unsupported values for {self._tag_name} tag were found: "
+          f"{sorted(unsupported_values)}. Please add them to "
+          f"{self._relative_tag_file}.")

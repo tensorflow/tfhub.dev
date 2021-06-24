@@ -105,7 +105,7 @@ values:
 """
 
 
-class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
+class AbstractYamlParserTest(tf.test.TestCase, parameterized.TestCase):
 
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
@@ -135,35 +135,51 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
           os.path.join(self.tmp_dir, yaml_parser.TAG_TO_YAML_MAP[tag_key]),
           content)
 
-  def test_invalid_yaml_file(self):
-    self._create_tag_files(dataset_content="foo\n:", language_content="foo\n:")
-    parser = yaml_parser.YamlParser(self.tmp_dir)
+  def test_from_tag_name_with_unknown_tag_fails(self):
+    with self.assertRaisesWithLiteralMatch(
+        ValueError, "No supported parser found for tag unknown-tag."):
+      yaml_parser.AbstractYamlParser.from_tag_name(self.tmp_dir, "unknown-tag")
+
+
+class EnumerableYamlParserTest(AbstractYamlParserTest):
+
+  @parameterized.parameters(("dataset", "dataset_content"),
+                            ("network-architecture", "architecture_content"),
+                            ("language", "language_content"),
+                            ("license", "license_content"),
+                            ("task", "task_content"),
+                            ("interactive-model-name", "visualizer_content"))
+  def test_invalid_yaml_file_raises_parser_error(self, tag_name,
+                                                 parameter_name):
+    self._create_tag_files(**{parameter_name: "foo\n:"})
+    parser = yaml_parser.EnumerableYamlParser(self.tmp_dir, tag_name)
 
     with self.assertRaises(yaml.parser.ParserError):
-      parser.get_supported_values(self.language_key)
+      parser._get_supported_values()
 
-  def test_non_existent_yaml_file(self):
-    parser = yaml_parser.YamlParser(self.create_tempdir())
+  @parameterized.parameters("dataset", "network-architecture", "language",
+                            "license", "task", "interactive-model-name")
+  def test_non_existent_yaml_file(self, tag_name):
+    parser = yaml_parser.EnumerableYamlParser(self.create_tempdir(), tag_name)
 
     with self.assertRaises(FileNotFoundError):
-      parser.get_supported_values(self.language_key)
+      parser._get_supported_values()
 
-  def test_non_existent_yaml_tag(self):
-    self._create_tag_files()
-    parser = yaml_parser.YamlParser(self.tmp_dir)
-
-    with self.assertRaisesWithLiteralMatch(
-        ValueError, "No supported ids found for tag non-existent-tag."):
-      parser.get_supported_values("non-existent-tag")
-
-  def test_build_tag_config_from_yaml(self):
-    yaml_config = yaml.safe_load(DEFAULT_ARCHITECTURE_CONTENT)
+  @parameterized.parameters(
+      (DEFAULT_ARCHITECTURE_CONTENT, {"bert", "transformer"}),
+      (DEFAULT_DATASET_CONTENT, {"mnist", "imagenet"}),
+      (DEFAULT_LANGUAGE_CONTENT, {"en", "fr"}),
+      (DEFAULT_LICENSE_YAML, {"apache-2.0"}),
+      (DEFAULT_TASK_CONTENT, {"text-embedding", "image-transfer"}),
+      (DEFAULT_VISUALIZER_CONTENT, {"spice"}))
+  def test_build_tag_config_from_yaml(self, content, expected_ids):
+    yaml_config = yaml.safe_load(content)
     tag_values_validator = yaml_parser.EnumerableTagValuesValidator.from_yaml(
         yaml_config)
 
     self.assertCountEqual(tag_values_validator.values, [
-        yaml_parser.TagValue(id="bert"),
-        yaml_parser.TagValue(id="transformer")
+        yaml_parser.EnumerableTagValue(id=expected_id)
+        for expected_id in expected_ids
     ])
 
   def test_build_tag_config_with_missing_values_key(self):
@@ -187,7 +203,7 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
         yaml_config)
 
     self.assertCountEqual(tag_values_validator.values,
-                          [yaml_parser.TagValue(id=id_value)])
+                          [yaml_parser.EnumerableTagValue(id=id_value)])
 
   @parameterized.parameters(
       ("dataset", {"dataset_content": SIMPLE_DATASET_CONTENT}, {"mnist"}),
@@ -203,9 +219,9 @@ class YamlParserTest(tf.test.TestCase, parameterized.TestCase):
   def test_get_supported_values(self, tag_key, content_params, expected_values):
     self._create_tag_files(**content_params)
 
-    parser = yaml_parser.YamlParser(self.tmp_dir)
+    parser = yaml_parser.EnumerableYamlParser(self.tmp_dir, tag_key)
 
-    self.assertEqual(parser.get_supported_values(tag_key), expected_values)
+    self.assertEqual(parser._get_supported_values(), expected_values)
 
 
 if __name__ == "__main__":

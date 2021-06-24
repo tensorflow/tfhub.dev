@@ -258,6 +258,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       self.set_content(f"root/tags/{file_name}", content)
     self.asset_path_modified = mock.patch.object(
         validator, "_is_asset_path_modified", return_value=True)
+    self.enumerable_parser = yaml_parser.EnumerableYamlParser(
+        self.tmp_root_dir, "language")
+    self.parser_by_tag = {"language": self.enumerable_parser}
     self.asset_path_modified.start()
     self.addCleanup(self.asset_path_modified.stop)
 
@@ -297,17 +300,16 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       ("# Collection google/experts/1", validator.CollectionParsingPolicy))
   def test_get_policy_from_string(self, document_string, expected_policy):
     self.assertIsInstance(
-        validator.ParsingPolicy.from_string(
-            document_string, yaml_parser.YamlParser(self.tmp_root_dir)),
+        validator.ParsingPolicy.from_string(document_string,
+                                            self.parser_by_tag),
         expected_policy)
 
   def test_fail_getting_policy_from_unknown_string(self):
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
         ".*Instead the first\nline is '# Newmodel google/ALBERT/1'"):
-      validator.ParsingPolicy.from_string(
-          "# Newmodel google/ALBERT/1",
-          yaml_parser.YamlParser(self.tmp_root_dir))
+      validator.ParsingPolicy.from_string("# Newmodel google/ALBERT/1",
+                                          self.parser_by_tag)
 
   def test_markdown_parsed_saved_model(self):
     empty_second_line = textwrap.dedent(f"""\
@@ -588,8 +590,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
     documentation_parser = validator.DocumentationParser(
-        self.tmp_root_dir, self.tmp_docs_dir,
-        yaml_parser.YamlParser(self.tmp_root_dir))
+        self.tmp_root_dir, self.tmp_docs_dir, self.parser_by_tag)
 
     documentation_parser.validate(
         validation_config=self.validation_config,
@@ -770,6 +771,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
+        f"Validating {tag_key} failed: "
         f"Unsupported values for {tag_key} tag were found: "
         rf"\['n/a'\]. Please add them to tags/{yaml_file_name}.yaml."):
       validator.validate_documentation_dir(
@@ -817,11 +819,10 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
-    parser = yaml_parser.YamlParser(self.tmp_root_dir)
     with open(os.path.join(self.model_path, ".invalid_file"), "w") as bad_file:
       bad_file.write("This file shouldn't be here")
     documentation_parser = validator.DocumentationParser(
-        self.tmp_root_dir, self.tmp_docs_dir, parser)
+        self.tmp_root_dir, self.tmp_docs_dir, self.parser_by_tag)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 r"Invalid filepath.*\.invalid_file"):

@@ -182,7 +182,8 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
   """
 
   def __init__(self,
-               yaml_parser: yaml_parser_lib.YamlParser,
+               yaml_parser_by_tag_name: Mapping[
+                   str, yaml_parser_lib.AbstractYamlParser],
                publisher: str,
                model_name: str,
                model_version: str,
@@ -192,8 +193,9 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
     """Initializes a ParsingPolicy instance for validating a document.
 
     Args:
-      yaml_parser: A yaml_parser_lib.YamlParser instance to be used for
-        accessing allowed metadata values from the YAML config files.
+      yaml_parser_by_tag_name: Mapping from a tag name to its
+        yaml_parser_lib.YamlParser instance to be used for accessing allowed
+        metadata values from the YAML config files.
       publisher: The name of the publisher of the model e.g. 'Google'.
       model_name: The name of the model e.g. 'ALBERT'.
       model_version: The version of the model e.g. '1'.
@@ -204,7 +206,7 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
       supported_asset_path_suffix: Optional; The file ending of the 'asset-path'
         tag, if that tag needs to be set.
     """
-    self._yaml_parser = yaml_parser
+    self._yaml_parser_by_tag_name = yaml_parser_by_tag_name
     self._publisher = publisher
     self._model_name = model_name
     self._model_version = model_version
@@ -213,16 +215,18 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
     self._supported_asset_path_suffix = supported_asset_path_suffix
 
   @classmethod
-  def from_string(cls: Type[ParsingPolicyType], first_line: str,
-                  yaml_parser: yaml_parser_lib.YamlParser) -> ParsingPolicyType:
+  def from_string(
+      cls: Type[ParsingPolicyType], first_line: str,
+      yaml_parser_by_tag_name: Mapping[str, yaml_parser_lib.AbstractYamlParser]
+  ) -> ParsingPolicyType:
     """Returns an appropriate ParsingPolicy instance for the Markdown string."""
     for pattern, policy in POLICY_BY_PATTERN.items():
       match = re.fullmatch(pattern, first_line)
       if not match:
         continue
       groups = match.groupdict()
-      return policy(yaml_parser, groups.get("publisher"), groups.get("name"),
-                    groups.get("vers"))
+      return policy(yaml_parser_by_tag_name, groups.get("publisher"),
+                    groups.get("name"), groups.get("vers"))
     raise MarkdownDocumentationError(
         textwrap.dedent(f"""\
       First line of the documentation file must match one of the following
@@ -345,27 +349,27 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
 
     Args:
       metadata: Mapping of metadata fields to their values e.g.
-                {"language": {"en", "fr"}}.
+        {"language": {"en", "fr"}}.
 
     Raises:
-      MarkdownDocumentationError: if a tag key contains elements in its set that
-        are not defined in the respective YAML file.
-      yaml.parser.ParserError: if the YAML file containing all supported values
-        is no valid YAML file.
-      FileNotFoundError: if the YAML file containing all supported values does
-        not exist.
+      FileNotFoundError: if a YAML file containing the parser config does not
+        exist.
+      yaml.parser.ParserError: if a YAML file containing the parser config is no
+        valid YAML file.
+      MarkdownDocumentationError: if a tag value from `metadata` is invalid as
+        determined by its respective parser from `yaml_parser_by_tag_name`.
     """
-    for tag_name, yaml_path in yaml_parser_lib.TAG_TO_YAML_MAP.items():
-      if tag_name not in metadata:
+    for tag_name in metadata:
+      if tag_name not in self._yaml_parser_by_tag_name:
+        # Not every tag has a parser associated with it.
         continue
 
-      supported_values = self._yaml_parser.get_supported_values(tag_name)
-      unsupported_values = metadata[tag_name] - supported_values
-      if unsupported_values:
+      yaml_parser = self._yaml_parser_by_tag_name[tag_name]
+      try:
+        yaml_parser.assert_tag_values_are_correct(metadata[tag_name])
+      except ValueError as e:
         raise MarkdownDocumentationError(
-            f"Unsupported values for {tag_name} tag were found: "
-            f"{sorted(unsupported_values)}. Please add them to "
-            f"{yaml_parser_lib.TAG_TO_YAML_MAP[tag_name]}")
+            f"Validating {tag_name} failed: {e}") from e
 
   def assert_correct_metadata(self,
                               metadata: Mapping[str, AbstractSet[str]]) -> None:
@@ -386,13 +390,13 @@ class ModelParsingPolicy(ParsingPolicy):
   suffix like '.tar.gz' or '.tflite'.
   """
 
-  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
-               model_name: str, model_version: str,
-               required_metadata: AbstractSet[str],
+  def __init__(self, yaml_parser_by_tag_name: Mapping[
+      str, yaml_parser_lib.AbstractYamlParser], publisher: str, model_name: str,
+               model_version: str, required_metadata: AbstractSet[str],
                optional_metadata: AbstractSet[str],
                supported_asset_path_suffix: str) -> None:
     super().__init__(
-        yaml_parser,
+        yaml_parser_by_tag_name,
         publisher,
         model_name,
         model_version,
@@ -458,10 +462,11 @@ class ModelParsingPolicy(ParsingPolicy):
 class CollectionParsingPolicy(ParsingPolicy):
   """ParsingPolicy for collection documentation."""
 
-  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
-               model_name: str, model_version: str) -> None:
+  def __init__(self, yaml_parser_by_tag_name: Mapping[
+      str, yaml_parser_lib.AbstractYamlParser], publisher: str, model_name: str,
+               model_version: str) -> None:
     super(CollectionParsingPolicy, self).__init__(
-        yaml_parser,
+        yaml_parser_by_tag_name,
         publisher,
         model_name,
         model_version,
@@ -476,10 +481,11 @@ class CollectionParsingPolicy(ParsingPolicy):
 class PlaceholderParsingPolicy(ParsingPolicy):
   """ParsingPolicy for placeholder files."""
 
-  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
-               model_name: str, model_version: str) -> None:
+  def __init__(self, yaml_parser_by_tag_name: Mapping[
+      str, yaml_parser_lib.AbstractYamlParser], publisher: str, model_name: str,
+               model_version: str) -> None:
     super(PlaceholderParsingPolicy, self).__init__(
-        yaml_parser,
+        yaml_parser_by_tag_name,
         publisher,
         model_name,
         model_version,
@@ -497,10 +503,11 @@ class PlaceholderParsingPolicy(ParsingPolicy):
 class SavedModelParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for SavedModel documentation."""
 
-  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
-               model_name: str, model_version: str) -> None:
+  def __init__(self, yaml_parser_by_tag_name: Mapping[
+      str, yaml_parser_lib.AbstractYamlParser], publisher: str, model_name: str,
+               model_version: str) -> None:
     super(SavedModelParsingPolicy, self).__init__(
-        yaml_parser,
+        yaml_parser_by_tag_name,
         publisher,
         model_name,
         model_version,
@@ -545,10 +552,11 @@ class SavedModelParsingPolicy(ModelParsingPolicy):
 class TfjsParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for TF.js documentation."""
 
-  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
-               model_name: str, model_version: str) -> None:
+  def __init__(self, yaml_parser_by_tag_name: Mapping[
+      str, yaml_parser_lib.AbstractYamlParser], publisher: str, model_name: str,
+               model_version: str) -> None:
     super(TfjsParsingPolicy, self).__init__(
-        yaml_parser,
+        yaml_parser_by_tag_name,
         publisher,
         model_name,
         model_version,
@@ -564,10 +572,11 @@ class TfjsParsingPolicy(ModelParsingPolicy):
 class LiteParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for TFLite documentation."""
 
-  def __init__(self, yaml_parser: yaml_parser_lib.YamlParser, publisher: str,
-               model_name: str, model_version: str) -> None:
+  def __init__(self, yaml_parser_by_tag_name: Mapping[
+      str, yaml_parser_lib.AbstractYamlParser], publisher: str, model_name: str,
+               model_version: str) -> None:
     super(LiteParsingPolicy, self).__init__(
-        yaml_parser,
+        yaml_parser_by_tag_name,
         publisher,
         model_name,
         model_version,
@@ -596,13 +605,14 @@ class PublisherParsingPolicy(ParsingPolicy):
   """
 
   def __init__(self,
-               yaml_parser: yaml_parser_lib.YamlParser,
+               yaml_parser_by_tag_name: Mapping[
+                   str, yaml_parser_lib.AbstractYamlParser],
                publisher: str,
                model_name: str = "",
                model_version: str = "") -> None:
     super(PublisherParsingPolicy,
-          self).__init__(yaml_parser, publisher, model_name, model_version,
-                         set(), set())
+          self).__init__(yaml_parser_by_tag_name, publisher, model_name,
+                         model_version, set(), set())
 
   @property
   def type_name(self) -> str:
@@ -626,11 +636,13 @@ class PublisherParsingPolicy(ParsingPolicy):
 class DocumentationParser:
   """Class used for parsing model documentation strings."""
 
-  def __init__(self, root_dir: str, documentation_dir: str,
-               yaml_parser: yaml_parser_lib.YamlParser) -> None:
+  def __init__(
+      self, root_dir: str, documentation_dir: str,
+      yaml_parser_by_tag_name: Mapping[str, yaml_parser_lib.AbstractYamlParser]
+  ) -> None:
     self._root_dir = root_dir
     self._documentation_dir = documentation_dir
-    self._yaml_parser = yaml_parser
+    self._yaml_parser_by_tag_name = yaml_parser_by_tag_name
     self._parsed_metadata = dict()
     self._parsed_description = ""
     self._file_path = ""
@@ -652,7 +664,7 @@ class DocumentationParser:
   def _assert_publisher_page_exists(self) -> None:
     """Asserts that publisher page exists for the publisher of this model."""
     # Use a publisher policy to get the expected documentation page path.
-    publisher_policy = PublisherParsingPolicy(self._yaml_parser,
+    publisher_policy = PublisherParsingPolicy(self._yaml_parser_by_tag_name,
                                               self.policy.publisher)
     expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
         self._documentation_dir)
@@ -720,7 +732,8 @@ class DocumentationParser:
     raw_content = filesystem_utils.get_content(self._file_path)
     self._lines = raw_content.split("\n")
     first_line = self._lines[0].replace("&zwnj;", "")
-    self.policy = ParsingPolicy.from_string(first_line, self._yaml_parser)
+    self.policy = ParsingPolicy.from_string(first_line,
+                                            self._yaml_parser_by_tag_name)
 
     try:
       self.policy.assert_correct_file_path(self._file_path,
@@ -787,7 +800,13 @@ def validate_documentation_files(validation_config: ValidationConfig,
     MarkdownDocumentationError: if invalid Markdown files have been found.
   """
   documentation_dir = os.path.join(root_dir, relative_docs_path)
-  yaml_parser = yaml_parser_lib.YamlParser(root_dir)
+  # Passing this map prevents re-initializing the needed parsers for each
+  # document, which would be IO heavy due to reading configs from YAML files.
+  yaml_parser_by_tag_name = {
+      tag_name:
+      yaml_parser_lib.AbstractYamlParser.from_tag_name(root_dir, tag_name)
+      for tag_name in yaml_parser_lib.TAG_TO_YAML_MAP
+  }
   logging.info("Going to validate files %s in documentation directory %s.",
                files_to_validate, documentation_dir)
   validated = 0
@@ -796,7 +815,7 @@ def validate_documentation_files(validation_config: ValidationConfig,
   for file_path in files_to_validate:
     logging.info("Validating %s.", file_path)
     documentation_parser = DocumentationParser(root_dir, documentation_dir,
-                                               yaml_parser)
+                                               yaml_parser_by_tag_name)
     try:
       absolute_path = os.path.join(documentation_dir, file_path)
       documentation_parser.validate(validation_config, absolute_path)

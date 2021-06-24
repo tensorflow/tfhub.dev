@@ -339,9 +339,10 @@ class InteractiveVisualizerTagParserTest(TagDefinitionFileParserTest):
     })
 
   @parameterized.parameters(
-      "https://www.gstatic.com/",
+      "https://overlay.sandbox.google.com/",
+      "https://storage.googleapis.com/interactive_visualizer/",
       "https://storage.googleapis.com/tfhub-visualizers/",
-      "https://storage.googleapis.com/interactive_visualizer/")
+      "https://www.gstatic.com/")
   def test_pass_on_allowed_url_prefix(self, url_prefix):
     content = textwrap.dedent(f"""\
       values:
@@ -362,10 +363,10 @@ class InteractiveVisualizerTagParserTest(TagDefinitionFileParserTest):
 
     self.assert_validation_returns_correct_dict({
         f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
-            "URL needs to start with any of ['https://storage.googleapis.com/in"
-            "teractive_visualizer/', 'https://storage.googleapis.com/tfhub-visu"
-            "alizers/', 'https://www.gstatic.com/'] but was "
-            "https://mypage.com/index.html."
+            "URL needs to start with any of ['https://overlay.sandbox.google."
+            "com/', 'https://storage.googleapis.com/interactive_visualizer/', "
+            "'https://storage.googleapis.com/tfhub-visualizers/', "
+            "'https://www.gstatic.com/'] but was https://mypage.com/index.html."
     })
 
 

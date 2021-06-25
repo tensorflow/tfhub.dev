@@ -15,6 +15,8 @@ values:
     display_name: CenterNet
   - id: cnn
     display_name: CNN
+  - id: conformer
+    display_name: Conformer
   - id: dan
     display_name: DAN
   - id: deeplab-mobilenetv2-ade20k-train

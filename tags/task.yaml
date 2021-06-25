@@ -24,7 +24,7 @@ values:
     domains:
       - audio
   - id: audio-stt
-    display_name: Audio STT
+    display_name: Audio Speech-to-Text
     domains:
       - audio
   - id: image-augmentation

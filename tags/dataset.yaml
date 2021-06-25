@@ -85,6 +85,8 @@ values:
     display_name: Kinetics-400
   - id: kinetics-600
     display_name: Kinetics-600
+  - id: librispeech
+    display_name: LibriSpeech
   - id: ljspeech
     display_name: LJSpeech
   - id: lsun-bedroom

@@ -149,7 +149,6 @@ multiple lines.
 <!-- fine-tunable:true -->
 <!-- format: saved_model_2 -->
 <!-- dataset: mnist -->
-<!-- interactive-model-name: vision -->
 <!-- interactive-visualizer: vision -->
 <!-- language: en -->
 <!-- network-architecture: bert -->
@@ -180,7 +179,6 @@ multiple lines.
 
 <!-- dataset: mnist -->
 <!-- fine-tunable:true -->
-<!-- interactive-model-name: vision -->
 <!-- interactive-visualizer: vision -->
 <!-- language: en -->
 <!-- task:   text-embedding   -->
@@ -795,7 +793,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(
       ("dataset", "dataset"),
-      ("interactive-model-name", "interactive_visualizer"),
+
       ("interactive-visualizer", "interactive_visualizer"),
       ("language", "language"),
       ("license", "license"),
@@ -836,7 +834,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(
       ("dataset", "dataset"),
-      ("interactive-model-name", "interactive_visualizer"),
+
       ("interactive-visualizer", "interactive_visualizer"),
       ("language", "language"), ("license", "license"),
       ("network-architecture", "network_architecture"))

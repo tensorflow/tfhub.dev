@@ -124,7 +124,7 @@ class AbstractYamlParserTest(tf.test.TestCase, parameterized.TestCase):
     self.language_key = "language"
     self.license_key = "license"
     self.task_key = "task"
-    self.visualizer_key = "interactive-model-name"
+    self.visualizer_key = "interactive-visualizer"
 
   def _create_tag_files(self,
                         architecture_content=DEFAULT_ARCHITECTURE_CONTENT,
@@ -159,7 +159,7 @@ class EnumerableYamlParserTest(AbstractYamlParserTest):
                             ("language", "language_content"),
                             ("license", "license_content"),
                             ("task", "task_content"),
-                            ("interactive-model-name", "visualizer_content"))
+                            ("interactive-visualizer", "visualizer_content"))
   def test_invalid_yaml_file_raises_parser_error(self, tag_name,
                                                  parameter_name):
     self._create_tag_files(**{parameter_name: "foo\n:"})
@@ -169,7 +169,7 @@ class EnumerableYamlParserTest(AbstractYamlParserTest):
       parser._get_supported_values()
 
   @parameterized.parameters("dataset", "network-architecture", "language",
-                            "license", "task", "interactive-model-name")
+                            "license", "task", "interactive-visualizer")
   def test_non_existent_yaml_file(self, tag_name):
     parser = yaml_parser.EnumerableYamlParser(self.create_tempdir(), tag_name)
 
@@ -218,7 +218,7 @@ class EnumerableYamlParserTest(AbstractYamlParserTest):
 
   @parameterized.parameters(
       ("dataset", {"dataset_content": SIMPLE_DATASET_CONTENT}, {"mnist"}),
-      ("interactive-model-name", {
+      ("interactive-visualizer", {
           "visualizer_content": SIMPLE_VISUALIZER_CONTENT},
        {"spice", "vision"}),
       ("language", {"language_content": SIMPLE_LANGUAGE_CONTENT}, {"en"}),

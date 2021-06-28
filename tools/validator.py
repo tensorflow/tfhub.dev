@@ -102,7 +102,8 @@ LANGUAGE_KEY = "language"
 LICENSE_KEY = "license"
 PARENT_MODEL_KEY = "parent-model"
 TASK_KEY = "task"
-VISUALIZER_KEY = "interactive-model-name"
+INTERACTIVE_MODEL_NAME_KEY = "interactive-model-name"
+VISUALIZER_KEY = "interactive-visualizer"
 
 # These metadata tags can be set to more than one value.
 REPEATED_TAG_KEYS = (DATASET_KEY, LANGUAGE_KEY, TASK_KEY, ARCHITECTURE_KEY)
@@ -489,8 +490,8 @@ class PlaceholderParsingPolicy(ParsingPolicy):
         model_version,
         required_metadata={TASK_KEY},
         optional_metadata={
-            DATASET_KEY, FINE_TUNABLE_KEY, VISUALIZER_KEY, LANGUAGE_KEY,
-            LICENSE_KEY, ARCHITECTURE_KEY
+            DATASET_KEY, FINE_TUNABLE_KEY, INTERACTIVE_MODEL_NAME_KEY,
+            VISUALIZER_KEY, LANGUAGE_KEY, LICENSE_KEY, ARCHITECTURE_KEY
         })
 
   @property
@@ -514,7 +515,7 @@ class SavedModelParsingPolicy(ModelParsingPolicy):
         },
         optional_metadata={
             ARCHITECTURE_KEY, COLAB_KEY, DATASET_KEY, LANGUAGE_KEY, LICENSE_KEY,
-            VISUALIZER_KEY
+            INTERACTIVE_MODEL_NAME_KEY, VISUALIZER_KEY
         },
         supported_asset_path_suffix=TARFILE_SUFFIX)
 
@@ -559,7 +560,9 @@ class TfjsParsingPolicy(ModelParsingPolicy):
         model_name,
         model_version,
         required_metadata={ASSET_PATH_KEY, PARENT_MODEL_KEY},
-        optional_metadata={COLAB_KEY, DEMO_KEY, VISUALIZER_KEY},
+        optional_metadata={
+            COLAB_KEY, DEMO_KEY, INTERACTIVE_MODEL_NAME_KEY, VISUALIZER_KEY
+        },
         supported_asset_path_suffix=TARFILE_SUFFIX)
 
   @property
@@ -579,7 +582,9 @@ class LiteParsingPolicy(ModelParsingPolicy):
         model_name,
         model_version,
         required_metadata={ASSET_PATH_KEY, PARENT_MODEL_KEY},
-        optional_metadata={COLAB_KEY, VISUALIZER_KEY},
+        optional_metadata={
+            COLAB_KEY, INTERACTIVE_MODEL_NAME_KEY, VISUALIZER_KEY
+        },
         supported_asset_path_suffix=TFLITE_SUFFIX)
 
   @property

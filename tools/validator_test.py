@@ -150,6 +150,7 @@ multiple lines.
 <!-- format: saved_model_2 -->
 <!-- dataset: mnist -->
 <!-- interactive-model-name: vision -->
+<!-- interactive-visualizer: vision -->
 <!-- language: en -->
 <!-- network-architecture: bert -->
 <!-- license: apache-2.0 -->
@@ -180,6 +181,7 @@ multiple lines.
 <!-- dataset: mnist -->
 <!-- fine-tunable:true -->
 <!-- interactive-model-name: vision -->
+<!-- interactive-visualizer: vision -->
 <!-- language: en -->
 <!-- task:   text-embedding   -->
 <!-- network-architecture: bert -->
@@ -794,6 +796,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(
       ("dataset", "dataset"),
       ("interactive-model-name", "interactive_visualizer"),
+      ("interactive-visualizer", "interactive_visualizer"),
       ("language", "language"),
       ("license", "license"),
       ("network-architecture", "network_architecture"),
@@ -834,6 +837,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(
       ("dataset", "dataset"),
       ("interactive-model-name", "interactive_visualizer"),
+      ("interactive-visualizer", "interactive_visualizer"),
       ("language", "language"), ("license", "license"),
       ("network-architecture", "network_architecture"))
   def test_placeholder_markdown_with_unsupported_tag_value(

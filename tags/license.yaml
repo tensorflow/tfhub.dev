@@ -1,0 +1,42 @@
+values:
+  - id: apache-2.0
+    display_name: Apache-2.0
+    url: https://opensource.org/licenses/Apache-2.0
+  - id: bsd-2-clause
+    display_name: BSD-2-Clause
+    url: https://opensource.org/licenses/BSD-2-Clause
+  - id: bsd-3-clause
+    display_name: BSD-3-Clause
+    url: https://opensource.org/licenses/BSD-3-Clause
+  - id: gpl-2.0
+    display_name: GPL-2.0
+    url: https://opensource.org/licenses/GPL-2.0
+  - id: gpl-3.0
+    display_name: GPL-3.0
+    url: https://opensource.org/licenses/GPL-3.0
+  - id: lgpl-2.0
+    display_name: LGPL-2.0
+    url: https://opensource.org/licenses/LGPL-2.0
+  - id: lgpl-2.1
+    display_name: LGPL-2.1
+    url: https://opensource.org/licenses/LGPL-2.1
+  - id: lgpl-3.0
+    display_name: LGPL-3.0
+    url: https://opensource.org/licenses/LGPL-3.0
+  - id: mit
+    display_name: MIT
+    url: https://opensource.org/licenses/MIT
+  - id: mpl-2.0
+    display_name: MPL-2.0
+    url: https://opensource.org/licenses/MPL-2.0
+  - id: cddl-1.0
+    display_name: CDDL-1.0
+    url: https://opensource.org/licenses/CDDL-1.0
+  - id: epl-2.0
+    display_name: EPL-2.0
+    url: https://opensource.org/licenses/EPL-2.0
+  - id: cc-by-nc-4.0
+    display_name: CC-BY-NC-4.0
+    url: https://creativecommons.org/licenses/by-nc/4.0
+  - id: custom
+    display_name: custom

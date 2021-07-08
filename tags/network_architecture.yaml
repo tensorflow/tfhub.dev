@@ -55,6 +55,8 @@ values:
     display_name: EfficientNet-B6
   - id: efficientnet-b7
     display_name: EfficientNet-B7
+  - id: efficientnet-v2
+    display_name: EfficientNet V2
   - id: elmo
     display_name: ELMo
   - id: fastdepth

@@ -181,6 +181,8 @@ values:
     display_name: TVN-3
   - id: tvn-mobile-1
     display_name: TVN-Mobile-1
+  - id: ulmfit
+    display_name: ULMFiT
   - id: unet
     display_name: Unet
   - id: vae

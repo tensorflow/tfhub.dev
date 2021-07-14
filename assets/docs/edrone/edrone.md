@@ -1,7 +1,7 @@
 # Publisher edrone
 Edrone
 
-[![Icon URL]](https://d3vhsxl1pwzf0p.cloudfront.net/images_2_6/v2/logo.svg)
+[![Icon URL]](https://d3vhsxl1pwzf0p.cloudfront.net/images_2_6/v2/edrone-logo-square.png)
 
 ## Details
 edrone provides CRM, marketing automation and analytics tools for e-commerce platforms

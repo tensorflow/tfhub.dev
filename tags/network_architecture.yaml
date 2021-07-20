@@ -199,3 +199,5 @@ values:
     display_name: word2vec skip-gram
   - id: wrn-106
     display_name: WRN-106
+  - id: wav2vec2-base
+    display_name: wav2vec2-base

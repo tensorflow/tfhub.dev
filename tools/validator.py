@@ -35,19 +35,22 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import textwrap
 from typing import AbstractSet, Mapping, MutableSequence, Optional, Type, TypeVar
+import urllib.request
 
 from absl import app
 from absl import logging
 import attr
 import tensorflow as tf
-import tensorflow_hub as hub
 import filesystem_utils
 import yaml_parser as yaml_parser_lib
 
+from google.protobuf import message
+from google.protobuf import text_format
 # pylint: disable=g-direct-tensorflow-import
-from tensorflow.python.saved_model import loader_impl
+from tensorflow.core.protobuf import saved_model_pb2
 # pylint: enable=g-direct-tensorflow-import
 
 FLAGS = None
@@ -58,37 +61,58 @@ DOCS_PATH = "assets/docs"
 # Regex pattern for the first line of the documentation of Saved Models.
 # Example: "Module google/universal-sentence-encoder/1"
 MODEL_HANDLE_PATTERN = (
-    r"# Module "
-    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")
+    "# Module "
+    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
+    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Model name like "BERT/uncased".
+    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
 # Regex pattern for the first line of the documentation of placeholder MD files.
 # Example: "Placeholder google/universal-sentence-encoder/1"
 PLACEHOLDER_HANDLE_PATTERN = (
-    r"# Placeholder "
-    r"(?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")
+    "# Placeholder "
+    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
+    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Model name like "BERT/uncased".
+    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
 # Regex pattern for the first line of the documentation of TF Lite models.
 # Example: "# Lite google/spice/1"
 LITE_HANDLE_PATTERN = (
-    r"# Lite (?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
+    "# Lite "
+    r"(?P<publisher>[\w-]+)/"  # Name of the publisher like "Google".
+    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Model name like "BERT/uncased".
+    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
 # Regex pattern for the first line of the documentation of TFJS models.
 # Example: "# Tfjs google/spice/1/default/1"
 TFJS_HANDLE_PATTERN = (
-    r"# Tfjs (?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
+    "# Tfjs "
+    r"(?P<publisher>[\w-]+)/"  # Name of the publisher like "Google".
+    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Name of the model like "BERT/uncased".
+    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
 # Regex pattern for the first line of the documentation of Coral models.
 # Example: "# Coral tensorflow/mobilenet_v2_1.0_224_quantized/1/default/1"
 CORAL_HANDLE_PATTERN = (
-    r"# Coral (?P<publisher>[\w-]+)/(?P<name>([\w\.-]+(/[\w\.-]+)*))/(?P<vers>\d+)")  # pylint: disable=line-too-long
+    "# Coral "
+    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
+    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Name of the model like "BERT/uncased".
+    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
 # Regex pattern for the first line of the documentation of publishers.
 # Example: "Publisher google"
 PUBLISHER_HANDLE_PATTERN = r"# Publisher (?P<publisher>[\w-]+)"
 # Regex pattern for the first line of the documentation of collections.
 # Example: "Collection google/universal-sentence-encoders/1"
 COLLECTION_HANDLE_PATTERN = (
-    r"# Collection (?P<publisher>[\w-]+)/(?P<name>(\w|-|/|&|;|\.)+)/(\d+)")
+    "# Collection "
+    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
+    r"(?P<name>(\w|-|/|&|;|\.)+)/"  # Collection name like "wiki40b-lm".
+    r"(\d+)")  # Integer specifying the collection version like 1.
 # Regex pattern for the line of the documentation describing model metadata.
 # Example: "<!-- fine-tunable: true -->"
 # Note: Both key and value consumes free space characters, but later on these
 # are stripped.
 METADATA_LINE_PATTERN = r"^<!--(?P<key>(\w|\s|-)+):(?P<value>.+)-->$"
+
+# Regex pattern for files in the SavedModel directory.
+# Example: "variables/variables.data-00000-of-00001"
+_FILE_NAME_PATTERN = r"[\w-][-!',_\w.=:% ]*"
+PATH_PATTERN = re.compile(f"({_FILE_NAME_PATTERN})+(/{_FILE_NAME_PATTERN})*")
 
 # Dict keys that map to the specified metadata values of the Markdown files.
 ARCHITECTURE_KEY = "network-architecture"
@@ -129,13 +153,6 @@ class MarkdownDocumentationError(Exception):
   """Problem with markdown syntax parsing."""
 
 
-def _validate_file_paths(model_dir: str) -> None:
-  valid_path_regex = re.compile(r"(/[\w-][!',_\w\.\-=:% ]*)+")
-  for filepath in filesystem_utils.recursive_list_dir(model_dir):
-    if not valid_path_regex.fullmatch(filepath):
-      raise MarkdownDocumentationError(f"Invalid filepath in asset: {filepath}")
-
-
 def _is_asset_path_modified(file_path: str) -> bool:
   """Returns True if the asset-path tag has been added or modified."""
   git_diff = subprocess.Popen(["git", "diff", "origin/master", file_path],
@@ -156,6 +173,65 @@ def _is_asset_path_modified(file_path: str) -> bool:
   else:
     raise MarkdownDocumentationError(
         f"Internal: grep command returned unexpected exit code {return_code}")
+
+
+def _check_that_saved_model_pb_parses(tar: tarfile.TarFile,
+                                     tar_member: tarfile.TarInfo) -> None:
+  """Tries to load a saved_model.pb from the tarfile into a SavedModel proto.
+
+  Args:
+    tar: TarFile containing the possible SavedModel assets.
+    tar_member: TarInfo that corresponds to the file being saved in the tarfile.
+
+  Raises:
+    MarkdownDocumentationError:
+      - if saved_model.pb is no regular file in the tarfile.
+      - if saved_model.pb cannot be loaded into a SavedModel proto.
+  """
+  data = tar.extractfile(tar_member)
+  if data is None:
+    raise MarkdownDocumentationError("saved_model.pb is no regular file.")
+  try:
+    saved_model_pb2.SavedModel.FromString(data.read())
+  except message.DecodeError as e:
+    raise MarkdownDocumentationError("Could not parse saved_model.pb.") from e
+
+
+def _check_that_saved_model_pbtxt_parses(tar: tarfile.TarFile,
+                                         tar_member: tarfile.TarInfo) -> None:
+  """Tries to load a saved_model.pbtxt from the tarfile into a SavedModel proto.
+
+  Args:
+    tar: TarFile containing the possible SavedModel assets.
+    tar_member: TarInfo that corresponds to the file being saved in the tarfile.
+
+  Raises:
+    MarkdownDocumentationError:
+      - if saved_model.pbtxt is no regular file in the tarfile.
+      - if saved_model.pbtxt cannot be loaded into a SavedModel proto.
+  """
+  data = tar.extractfile(tar_member)
+  if data is None:
+    raise MarkdownDocumentationError("saved_model.pbtxt is no regular file.")
+  try:
+    text_format.Parse(data.read().decode("utf-8"), saved_model_pb2.SavedModel())
+  except text_format.ParseError as e:
+    raise MarkdownDocumentationError(
+        "Could not parse saved_model.pbtxt.") from e
+
+
+def _validate_file_name(file_path: str) -> None:
+  """Checks that the file name is allowed.
+
+  Args:
+    file_path: Relative path to a file.
+
+  Raises:
+    MarkdownDocumentationError:
+      - if the path is invalid since it e.g. starts with a dot.
+  """
+  if not PATH_PATTERN.fullmatch(file_path):
+    raise MarkdownDocumentationError(f"Invalid filepath in asset: {file_path}")
 
 
 @attr.s(auto_attribs=True)
@@ -293,9 +369,8 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
     logging.info("Skipping validating 'asset-path' tag since the tag is not "
                  "supported.")
 
-  def _assert_can_resolve_asset(self, asset_path: str) -> None:
-    """Check whether the asset path can be resolved."""
-    pass
+  def _check_valid_remote_asset(self, asset_path: str) -> None:
+    """Checks whether the remote asset is valid."""
 
   def _assert_metadata_contains_required_fields(
       self, metadata: Mapping[str, AbstractSet[str]]) -> None:
@@ -454,7 +529,7 @@ class ModelParsingPolicy(ParsingPolicy):
           "by its robots.txt.")
 
     if validation_config.do_smoke_test:
-      self._assert_can_resolve_asset(asset_path)
+      self._check_valid_remote_asset(asset_path)
 
 
 class CollectionParsingPolicy(ParsingPolicy):
@@ -522,19 +597,46 @@ class SavedModelParsingPolicy(ModelParsingPolicy):
   def type_name(self) -> str:
     return "Module"
 
-  def _assert_can_resolve_asset(self, asset_path: str) -> None:
-    """Attempts to hub.resolve the given asset path."""
-    try:
-      resolved_model = hub.resolve(asset_path)
-      loader_impl.parse_saved_model(resolved_model)
-      _validate_file_paths(resolved_model)
-    except Exception as e:  # pylint: disable=broad-except
-      raise MarkdownDocumentationError(
-          f"The model on path {asset_path} failed to parse. Please make sure "
-          "that the asset-path metadata points to a valid TF2 SavedModel or a "
-          "TF1 Hub module as described on "
-          "https://www.tensorflow.org/hub/exporting_tf2_saved_model. "
-          f"Underlying reason for failure: {e}.")
+  def _check_valid_remote_asset(self, remote_archive: str) -> None:
+    """Checks whether the remote archive contains valid SavedModel files.
+
+    Args:
+      remote_archive: URL pointing to the remote archive.
+
+    Raises:
+      MarkdownDocumentationError:
+        - if the remote file is no valid tarfile.
+        - if a file name within the tarfile is invalid since it e.g. starts with
+          a dot.
+        - if no saved_model.pb(txt) file is contained in the archive.
+        - if the contained saved_model.pb(txt) file cannot be loaded into a
+          SavedModel proto.
+    """
+    valid_saved_model_proto_found = False
+    with urllib.request.urlopen(remote_archive) as url_contents:
+      try:
+        with tarfile.open(fileobj=url_contents, mode="r|gz") as tar:
+          for tar_member in tar:
+            if not tar_member.isfile():
+              continue
+            normalized_path = os.path.normpath(tar_member.name)  # Strip './'.
+            normalized_name = os.path.basename(normalized_path)
+            _validate_file_name(normalized_path)
+            if normalized_name == tf.saved_model.SAVED_MODEL_FILENAME_PB:
+              _check_that_saved_model_pb_parses(tar, tar_member)
+              valid_saved_model_proto_found = True
+            elif normalized_name == tf.saved_model.SAVED_MODEL_FILENAME_PBTXT:
+              _check_that_saved_model_pbtxt_parses(tar, tar_member)
+              valid_saved_model_proto_found = True
+      except tarfile.ReadError as e:
+        raise MarkdownDocumentationError("Could not read tarfile.") from e
+      if not valid_saved_model_proto_found:
+        raise MarkdownDocumentationError(
+            f"The model from {remote_archive} does not contain a valid "
+            "saved_model.pb or saved_model.pbtxt file. Please make sure that "
+            "the asset-path metadata points to a valid TF2 SavedModel or a TF1 "
+            "Hub module as described on "
+            "https://www.tensorflow.org/hub/exporting_tf2_saved_model.")
 
   def assert_correct_metadata(self,
                               metadata: Mapping[str, AbstractSet[str]]) -> None:
@@ -660,8 +762,8 @@ class DocumentationParser:
   def parsed_metadata(self) -> str:
     return self._parsed_metadata
 
-  def _raise_error(self, message: str) -> None:
-    raise MarkdownDocumentationError(message)
+  def _raise_error(self, error_message: str) -> None:
+    raise MarkdownDocumentationError(error_message)
 
   def _assert_publisher_page_exists(self) -> None:
     """Asserts that publisher page exists for the publisher of this model."""

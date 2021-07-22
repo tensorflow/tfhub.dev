@@ -16,6 +16,7 @@
 
 import os
 import pathlib
+import tarfile
 import tensorflow as tf
 import filesystem_utils
 
@@ -53,6 +54,51 @@ class FilesystemUtilsTest(tf.test.TestCase):
     content = "# Module"
     temp_file = self.create_tempfile(content=content)
     self.assertEqual(content, filesystem_utils.get_content(temp_file))
+
+  def test_create_archive_with_valid_file_succeeds(self):
+    file_name = "my_file"
+    file_content = "content"
+    file_path = self.create_tempfile(file_path=file_name, content=file_content)
+    archive_path = self.create_tempfile().full_path
+
+    filesystem_utils.create_archive(archive_path, file_path)
+
+    with tf.io.gfile.GFile(archive_path, "rb") as archive_file:
+      with tarfile.open(fileobj=archive_file, mode="r:gz") as tar_file:
+        self.assertEqual(tar_file.getnames(), [file_name])
+        member = tar_file.extractfile(file_name)
+        self.assertIsNotNone(member)
+        # pytype: disable=attribute-error, member is not None so .read() is
+        # safe.
+        self.assertEqual(member.read(), b"content")
+        # pytype: enable=attribute-error
+
+  def test_compress_local_directory_to_archive_from_valid_directory(self):
+    temp_dir = self.create_tempdir()
+    file_name1 = "file_name1"
+    file_name2 = "file_name2"
+    content1 = "content1"
+    content2 = "content2"
+    temp_dir.create_file(file_path=file_name1, content=content1)
+    temp_dir.create_file(file_path=file_name2, content=content2)
+    archive_path = self.create_tempfile().full_path
+
+    filesystem_utils.compress_local_directory_to_archive(
+        temp_dir.full_path, archive_path)
+
+    with tf.io.gfile.GFile(archive_path, "rb") as archive_file:
+      with tarfile.open(fileobj=archive_file, mode="r:gz") as tar_file:
+        files = filter(lambda member: member.isfile(), tar_file.getmembers())
+        self.assertCountEqual([file.name for file in files],
+                              [file_name1, file_name2])
+        for file_name, expected_content in zip([file_name1, file_name2],
+                                               [content1, content2]):
+          member = tar_file.extractfile(file_name)
+          self.assertIsNotNone(member)
+          # pytype: disable=attribute-error, member is not None so .read() is
+          # safe.
+          self.assertEqual(member.read(), expected_content.encode("utf-8"))
+          # pytype: enable=attribute-error
 
 
 if __name__ == "__main__":

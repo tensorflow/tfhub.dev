@@ -64,12 +64,13 @@ pytype_strict_library(
     deps = [
         ":filesystem_utils",
         ":yaml_parser",
+        "@com_google_protobuf//:protobuf_python",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/logging",
         "//third_party/py/attr",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
-        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
-        "@org_tensorflow//tensorflow/python/saved_model:loader",
+        "//third_party/tensorflow/core:protos_all_py_pb2",
+        "@org_tensorflow//tensorflow/python/saved_model:constants",
     ],
 )
 
@@ -85,7 +86,6 @@ pytype_strict_library(
         "@io_abseil_py//absl/logging",
         "//third_party/py/ruamel",
         "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
-        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_hub_installed",
         "//third_party/py/yaml",
     ],
 )
@@ -127,6 +127,7 @@ pytype_strict_test(
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
+        ":filesystem_utils",
         ":validator_lib",
         ":yaml_parser",
         "@io_abseil_py//absl/testing:parameterized",

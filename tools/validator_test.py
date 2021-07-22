@@ -14,12 +14,16 @@
 # ==============================================================================
 """Tests for tensorflow_hub.tfhub_dev.tools.validator."""
 
+import contextlib
 import os
 import textwrap
+from typing import Optional
 from unittest import mock
+import urllib.request
 
 from absl.testing import parameterized
 import tensorflow as tf
+import filesystem_utils
 import validator
 import yaml_parser
 
@@ -247,6 +251,19 @@ Simple description spanning one line.
 """
 
 
+class MockUrlOpen(contextlib.AbstractContextManager):
+  """Mock to replace the urlopen context manager with a GFile file stream."""
+
+  def __init__(self, url: str) -> None:
+    self.file_obj = tf.io.gfile.GFile(url, "rb")
+
+  def __enter__(self) -> tf.io.gfile.GFile:
+    return self.file_obj
+
+  def __exit__(self, *args) -> None:
+    self.file_obj.close()
+
+
 class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def setUp(self):
@@ -256,12 +273,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.tmp_root_dir = os.path.join(self.tmp_dir, "root")
     self.tmp_docs_dir = os.path.join(self.tmp_root_dir, "assets", "docs")
     self.model_path = os.path.join(self.tmp_dir, "model_1.tar.gz")
-    self.not_a_model_path = os.path.join(self.tmp_dir, "not_a_model.tar.gz")
-    self.save_dummy_model(self.model_path)
+    self.save_dummy_model_archive(self.model_path)
     self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
     self.maximal_markdown = MAXIMAL_SAVED_MODEL_TEMPLATE % self.model_path
-    self.minimal_markdown_with_bad_model = (
-        MINIMAL_SAVED_MODEL_TEMPLATE % self.not_a_model_path)
     for file_name, content in TAG_FILE_NAME_TO_CONTENT_MAP.items():
       self.set_content(f"root/tags/{file_name}", content)
     self.asset_path_modified = mock.patch.object(
@@ -285,7 +299,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.set_content(f"root/assets/docs/{publisher}/{publisher}.md",
                      PUBLISHER_HANDLE_TEMPLATE % publisher)
 
-  def save_dummy_model(self, path):
+  def save_dummy_model_archive(self,
+                               path: str,
+                               extra_file: Optional[str] = None) -> None:
 
     class MultiplyTimesTwoModel(tf.train.Checkpoint):
       """Callable model that multiplies by two."""
@@ -296,7 +312,14 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         return x * 2
 
     model = MultiplyTimesTwoModel()
-    tf.saved_model.save(model, path)
+    temp_dir = self.create_tempdir().full_path
+    tf.saved_model.save(model, temp_dir)
+    if extra_file is not None:
+      os.makedirs(
+          os.path.join(temp_dir, os.path.dirname(extra_file)), exist_ok=True)
+      with open(os.path.join(temp_dir, extra_file), "wt") as f:
+        f.write("This file is not necessary.")
+    filesystem_utils.compress_local_directory_to_archive(temp_dir, path)
 
   @parameterized.parameters(
       ("# Module google/ALBERT/1", validator.SavedModelParsingPolicy),
@@ -654,13 +677,39 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         root_dir=self.tmp_root_dir,
         files_to_validate=["google/models/text-embedding-model/1.md"])
 
-  def test_bad_model_does_not_pass_smoke_test(self):
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
+  def test_missing_saved_model_file_does_not_pass_smoke_test(self):
+    not_a_model_path = os.path.join(self.tmp_dir, "not_a_model.tar.gz")
+    temp_file = self.create_tempfile("keras_metadata.pb", "No SavedModel file.")
+    filesystem_utils.create_archive(not_a_model_path, temp_file.full_path)
+    self.minimal_markdown_with_bad_model = (
+        MINIMAL_SAVED_MODEL_TEMPLATE % not_a_model_path)
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      self.minimal_markdown_with_bad_model)
     self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                ".*failed to parse.*"):
+                                ".*not contain a valid saved_model.pb.*"):
+      validator.validate_documentation_files(
+          validation_config=validator.ValidationConfig(do_smoke_test=True),
+          root_dir=self.tmp_root_dir,
+          files_to_validate=["google/models/text-embedding-model/1.md"])
+
+  @parameterized.parameters("saved_model.pb", "saved_model.pbtxt")
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
+  def test_invalid_saved_model_file_does_not_pass_smoke_test(
+      self, saved_model_name):
+    not_a_model_path = os.path.join(self.tmp_dir, "not_a_model.tar.gz")
+    temp_file = self.create_tempfile(saved_model_name, "No SavedModel file.")
+    filesystem_utils.create_archive(not_a_model_path, temp_file.full_path)
+    self.minimal_markdown_with_bad_model = (
+        MINIMAL_SAVED_MODEL_TEMPLATE % not_a_model_path)
+    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+                     self.minimal_markdown_with_bad_model)
+    self.set_up_publisher_page("google")
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                f".*Could not parse {saved_model_name}.*"):
       validator.validate_documentation_files(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
           root_dir=self.tmp_root_dir,
@@ -853,12 +902,13 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
 
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
   def test_model_with_invalid_filenames_fails_smoke_test(self):
+    self.save_dummy_model_archive(self.model_path, ".invalid_file")
+    self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
     self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
                      self.minimal_markdown)
     self.set_up_publisher_page("google")
-    with open(os.path.join(self.model_path, ".invalid_file"), "w") as bad_file:
-      bad_file.write("This file shouldn't be here")
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir, self.parser_by_tag)
 

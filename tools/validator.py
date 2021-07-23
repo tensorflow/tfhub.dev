@@ -31,6 +31,7 @@ $ python tools/validator.py --root_dir=path_to_project_root
 
 import abc
 import argparse
+import fnmatch
 import os
 import re
 import subprocess
@@ -146,6 +147,14 @@ HANDLE_PATTERN_TO_MODEL_TYPE = {
 TARFILE_SUFFIX = ".tar.gz"
 TFLITE_SUFFIX = ".tflite"
 
+
+# Allowed SavedModel files:
+# https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/saved_model/README.md  # pylint: disable=line-too-long
+ALLOWED_SAVED_MODEL_PATHS = frozenset([
+    "saved_model.pb", "saved_model.pbtxt", "tfhub_module.pb",
+    "keras_metadata.pb", "assets/*", "assets.extra/*", "variables/variables.*"
+])
+
 ParsingPolicyType = TypeVar("ParsingPolicyType", bound="ParsingPolicy")
 
 
@@ -176,7 +185,7 @@ def _is_asset_path_modified(file_path: str) -> bool:
 
 
 def _check_that_saved_model_pb_parses(tar: tarfile.TarFile,
-                                     tar_member: tarfile.TarInfo) -> None:
+                                      tar_member: tarfile.TarInfo) -> None:
   """Tries to load a saved_model.pb from the tarfile into a SavedModel proto.
 
   Args:
@@ -229,9 +238,16 @@ def _validate_file_name(file_path: str) -> None:
   Raises:
     MarkdownDocumentationError:
       - if the path is invalid since it e.g. starts with a dot.
+      - if the path is forbidden since it cannot be used by the SavedModel e.g.
+        when "vocab.txt" is located in "variables/" and not in "assets/".
   """
   if not PATH_PATTERN.fullmatch(file_path):
     raise MarkdownDocumentationError(f"Invalid filepath in asset: {file_path}")
+  if not any(
+      fnmatch.fnmatch(file_path, pattern)
+      for pattern in ALLOWED_SAVED_MODEL_PATHS):
+    raise MarkdownDocumentationError(
+        f"File cannot be used by SavedModel: {file_path}")
 
 
 @attr.s(auto_attribs=True)

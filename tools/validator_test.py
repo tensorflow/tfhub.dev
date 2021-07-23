@@ -266,6 +266,17 @@ class MockUrlOpen(contextlib.AbstractContextManager):
 
 class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
+  def _get_parser_for_validating_saved_model_file(
+      self, extra_file_name: str,
+      markdown_file_path: str) -> validator.DocumentationParser:
+    """Returns a parser for checking a Markdown file pointing to an archive."""
+    self.save_dummy_model_archive(self.model_path, extra_file_name)
+    self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
+    self.set_content(markdown_file_path, self.minimal_markdown)
+    self.set_up_publisher_page("google")
+    return validator.DocumentationParser(self.tmp_root_dir, self.tmp_docs_dir,
+                                         self.parser_by_tag)
+
   def setUp(self):
     super(tf.test.TestCase, self).setUp()
     self.validation_config = validator.ValidationConfig()
@@ -276,6 +287,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.save_dummy_model_archive(self.model_path)
     self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
     self.maximal_markdown = MAXIMAL_SAVED_MODEL_TEMPLATE % self.model_path
+    self.markdown_file_path = "root/assets/docs/google/models/text-embedding-model/1.md"
     for file_name, content in TAG_FILE_NAME_TO_CONTENT_MAP.items():
       self.set_content(f"root/tags/{file_name}", content)
     self.asset_path_modified = mock.patch.object(
@@ -359,8 +371,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         self.minimal_markdown, self.maximal_markdown, empty_second_line
     ]:
       self.set_up_publisher_page("google")
-      self.set_content(
-          "root/assets/docs/google/models/text-embedding-model/1.md", markdown)
+      self.set_content(self.markdown_file_path, markdown)
 
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
@@ -368,8 +379,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(MINIMAL_PLACEHOLDER, MAXIMAL_PLACEHOLDER)
   def test_markdown_parsed_placeholder(self, markdown):
     self.set_up_publisher_page("google")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     markdown)
+    self.set_content(self.markdown_file_path, markdown)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
@@ -385,8 +395,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- parent-model: google/text-embedding-model/1 -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
     self.set_up_publisher_page("google")
 
     validator.validate_documentation_dir(
@@ -402,8 +411,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- parent-model:   google/text-embedding-model/1   -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
     self.set_up_publisher_page("google")
 
     validator.validate_documentation_dir(
@@ -420,16 +428,14 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- parent-model:   google/text-embedding-model/1   -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
     self.set_up_publisher_page("google")
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_with_selected_files(self):
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     self.minimal_markdown)
+    self.set_content(self.markdown_file_path, self.minimal_markdown)
     self.set_up_publisher_page("google")
 
     validator.validate_documentation_files(
@@ -472,8 +478,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_fails_if_publisher_page_does_not_exist(self):
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     self.minimal_markdown)
+    self.set_content(self.markdown_file_path, self.minimal_markdown)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*Publisher documentation does not.*"):
@@ -520,8 +525,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(SAVED_MODEL_WITHOUT_DESCRIPTION,
                             SAVED_MODEL_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK)
   def test_markdown_without_description(self, markdown):
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     markdown)
+    self.set_content(self.markdown_file_path, markdown)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*has to contain a short description.*"):
@@ -536,8 +540,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- format: saved_model_2 -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*missing.*fine-tunable.*task.*"):
@@ -556,8 +559,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- license: apache-2.0 -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError, "The 'format' metadata.*but "
@@ -576,8 +578,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- format: saved_model_2 -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*duplicate.*asset-path.*"):
@@ -608,8 +609,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- format: saved_model_2 -->
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*Unexpected line.*"):
@@ -617,16 +617,14 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_full(self):
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     self.minimal_markdown)
+    self.set_content(self.markdown_file_path, self.minimal_markdown)
     self.set_up_publisher_page("google")
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir, self.parser_by_tag)
 
     documentation_parser.validate(
         validation_config=self.validation_config,
-        file_path=self.get_full_path(
-            "root/assets/docs/google/models/text-embedding-model/1.md"))
+        file_path=self.get_full_path(self.markdown_file_path))
 
     self.assertEqual("Simple description spanning multiple lines.",
                      documentation_parser.parsed_description)
@@ -640,8 +638,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_asset_path_is_github_download_url_test(self):
     self.set_content(
-        "root/assets/docs/google/models/text-embedding-model/1.md",
-        MINIMAL_SAVED_MODEL_TEMPLATE %
+        self.markdown_file_path, MINIMAL_SAVED_MODEL_TEMPLATE %
         "https://github.com/some_repo/releases/download/some_path.tar.gz")
     self.set_up_publisher_page("google")
 
@@ -653,7 +650,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           files_to_validate=["google/models/text-embedding-model/1.md"])
 
   def test_asset_path_is_legacy_and_modified(self):
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+    self.set_content(self.markdown_file_path,
                      MINIMAL_SAVED_MODEL_TEMPLATE % LEGACY_VALUE)
     self.set_up_publisher_page("google")
 
@@ -668,7 +665,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.asset_path_modified = mock.patch.object(
         validator, "_is_asset_path_modified", return_value=False)
     self.asset_path_modified.start()
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+    self.set_content(self.markdown_file_path,
                      MINIMAL_SAVED_MODEL_TEMPLATE % LEGACY_VALUE)
     self.set_up_publisher_page("google")
 
@@ -684,7 +681,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     filesystem_utils.create_archive(not_a_model_path, temp_file.full_path)
     self.minimal_markdown_with_bad_model = (
         MINIMAL_SAVED_MODEL_TEMPLATE % not_a_model_path)
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+    self.set_content(self.markdown_file_path,
                      self.minimal_markdown_with_bad_model)
     self.set_up_publisher_page("google")
 
@@ -704,7 +701,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     filesystem_utils.create_archive(not_a_model_path, temp_file.full_path)
     self.minimal_markdown_with_bad_model = (
         MINIMAL_SAVED_MODEL_TEMPLATE % not_a_model_path)
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
+    self.set_content(self.markdown_file_path,
                      self.minimal_markdown_with_bad_model)
     self.set_up_publisher_page("google")
 
@@ -904,20 +901,47 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
   def test_model_with_invalid_filenames_fails_smoke_test(self):
-    self.save_dummy_model_archive(self.model_path, ".invalid_file")
-    self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
-    self.set_content("root/assets/docs/google/models/text-embedding-model/1.md",
-                     self.minimal_markdown)
-    self.set_up_publisher_page("google")
-    documentation_parser = validator.DocumentationParser(
-        self.tmp_root_dir, self.tmp_docs_dir, self.parser_by_tag)
+    invalid_file_name = ".invalid_file"
+    documentation_parser = self._get_parser_for_validating_saved_model_file(
+        invalid_file_name, self.markdown_file_path)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                r"Invalid filepath.*\.invalid_file"):
+                                rf"Invalid filepath.*{invalid_file_name}"):
       documentation_parser.validate(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
-          file_path=self.get_full_path(
-              "root/assets/docs/google/models/text-embedding-model/1.md"))
+          file_path=self.get_full_path(self.markdown_file_path))
+
+  @parameterized.parameters("assets/asset1", "assets.extra/asset1",
+                            "assets/somedir/asset1",
+                            "variables/variables.index")
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
+  def test_saved_model_with_custom_asset_file_succeeds(self, allowed_file):
+    """Tests that validating an archive with usable files succeeds."""
+    documentation_parser = self._get_parser_for_validating_saved_model_file(
+        allowed_file, self.markdown_file_path)
+
+    try:
+      documentation_parser.validate(
+          validation_config=validator.ValidationConfig(do_smoke_test=True),
+          file_path=self.get_full_path(self.markdown_file_path))
+    except validator.MarkdownDocumentationError as e:
+      self.fail("We should allow custom files that can be used by the "
+                "SavedModel but the test raised a MarkdownDocumentationError: "
+                f"{e}.")
+
+  @parameterized.parameters("other_file.txt", "variables/vocab.txt")
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
+  def test_saved_model_with_unused_file_fails(self, forbidden_file):
+    """Tests that validating an archive with unusuable files fails."""
+    documentation_parser = self._get_parser_for_validating_saved_model_file(
+        forbidden_file, self.markdown_file_path)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        rf"File cannot be used by SavedModel: .*{forbidden_file}"):
+      documentation_parser.validate(
+          validation_config=validator.ValidationConfig(do_smoke_test=True),
+          file_path=self.get_full_path(self.markdown_file_path))
 
 
 if __name__ == "__main__":

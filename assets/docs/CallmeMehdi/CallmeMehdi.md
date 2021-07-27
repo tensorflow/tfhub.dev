@@ -1,4 +1,4 @@
-# Publisher CallmeMehdi
+# Publisher callmemehdi
 Mehdi Mabrouki.
 
 [![Icon URL]](https://avatars.githubusercontent.com/u/47258917?v=4)

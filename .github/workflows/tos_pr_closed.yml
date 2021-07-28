@@ -34,5 +34,5 @@ jobs:
             $URL \
             -H "Content-Type: application/json" \
             -H "Authorization: token $GITHUB_TOKEN" \
-            --data '{ "body": "Thank you for your contribution. Your pull request has been accepted according to the TensorFlow Hub Terms of Service at www.tfhub.dev/terms and Google's Privacy Policy at https://www.google.com/policies/privacy. Your model should appear on tfhub.dev within a day." }'
+            --data '{ "body": "Thank you for your contribution. Your pull request has been accepted according to the TensorFlow Hub Terms of Service at www.tfhub.dev/terms and Google\'s Privacy Policy at https://www.google.com/policies/privacy. Your model should appear on tfhub.dev within a day." }'
 

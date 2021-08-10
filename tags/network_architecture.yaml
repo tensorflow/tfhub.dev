@@ -195,6 +195,8 @@ values:
     display_name: WAE
   - id: wav2vec2
     display_name: wav2vec2
+  - id: wav2vec2-960h
+    display_name: wav2vec2-960h
   - id: wide-resnet-40-8
     display_name: Wide-ResNet-40-8
   - id: word2vec-skip-gram

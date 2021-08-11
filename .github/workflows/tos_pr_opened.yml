@@ -33,5 +33,5 @@ jobs:
             $URL \
             -H "Content-Type: application/json" \
             -H "Authorization: token $GITHUB_TOKEN" \
-            --data '{ "body": "By opening this pull request, you are agreeing to the TensorFlow Hub Terms of Service at www.tfhub.dev/terms, and your pull request is being reviewed." }'
+            --data '{ "body": "By opening this pull request, you are agreeing to the TensorFlow Hub Terms of Service at www.tfhub.dev/terms and Google\'s Privacy Policy at https://www.google.com/policies/privacy, and your pull request is being reviewed." }'
 

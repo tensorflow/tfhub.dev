@@ -193,9 +193,13 @@ values:
     display_name: VideoFlow
   - id: wae
     display_name: WAE
+  - id: wav2vec2
+    display_name: wav2vec2
   - id: wide-resnet-40-8
     display_name: Wide-ResNet-40-8
   - id: word2vec-skip-gram
     display_name: word2vec skip-gram
   - id: wrn-106
     display_name: WRN-106
+  - id: yolo-v5
+    display_name: YOLOv5

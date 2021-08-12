@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-name: TF Hub terms of service
+name: TF Hub terms of service (on close)
 
 on:
   pull_request_target:

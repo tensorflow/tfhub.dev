@@ -59,51 +59,56 @@ FLAGS = None
 # Relative path from tfhub.dev/ to the docs/ directory.
 DOCS_PATH = "assets/docs"
 
+_PUBLISHER_ID_PATTERN = r"[a-z\d-]+"  # Publisher name like "google".
+_MODEL_NAME_PATTERN = r"[\w.-]+(/[\w.-]+)*"  # Model name like "BERT/uncased".
+_MODEL_VERSION_PATTERN = r"\d+"  # Integer specifying the version like 1.
+
 # Regex pattern for the first line of the documentation of Saved Models.
 # Example: "Module google/universal-sentence-encoder/1"
 MODEL_HANDLE_PATTERN = (
     "# Module "
-    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
-    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Model name like "BERT/uncased".
-    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
+    f"(?P<name>{_MODEL_NAME_PATTERN})/"
+    f"(?P<vers>{_MODEL_VERSION_PATTERN})")
 # Regex pattern for the first line of the documentation of placeholder MD files.
 # Example: "Placeholder google/universal-sentence-encoder/1"
 PLACEHOLDER_HANDLE_PATTERN = (
     "# Placeholder "
-    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
-    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Model name like "BERT/uncased".
-    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
+    f"(?P<name>{_MODEL_NAME_PATTERN})/"
+    f"(?P<vers>{_MODEL_VERSION_PATTERN})")
 # Regex pattern for the first line of the documentation of TF Lite models.
 # Example: "# Lite google/spice/1"
 LITE_HANDLE_PATTERN = (
     "# Lite "
-    r"(?P<publisher>[\w-]+)/"  # Name of the publisher like "Google".
-    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Model name like "BERT/uncased".
-    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
+    f"(?P<name>{_MODEL_NAME_PATTERN})/"
+    f"(?P<vers>{_MODEL_VERSION_PATTERN})")
 # Regex pattern for the first line of the documentation of TFJS models.
 # Example: "# Tfjs google/spice/1/default/1"
 TFJS_HANDLE_PATTERN = (
     "# Tfjs "
-    r"(?P<publisher>[\w-]+)/"  # Name of the publisher like "Google".
-    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Name of the model like "BERT/uncased".
-    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
+    f"(?P<name>{_MODEL_NAME_PATTERN})/"
+    f"(?P<vers>{_MODEL_VERSION_PATTERN})")
 # Regex pattern for the first line of the documentation of Coral models.
 # Example: "# Coral tensorflow/mobilenet_v2_1.0_224_quantized/1/default/1"
 CORAL_HANDLE_PATTERN = (
     "# Coral "
-    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
-    r"(?P<name>([\w.-]+(/[\w.-]+)*))/"  # Name of the model like "BERT/uncased".
-    r"(?P<vers>\d+)")  # Integer specifying the version like 1.
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
+    f"(?P<name>{_MODEL_NAME_PATTERN})/"
+    f"(?P<vers>{_MODEL_VERSION_PATTERN})")
 # Regex pattern for the first line of the documentation of publishers.
 # Example: "Publisher google"
-PUBLISHER_HANDLE_PATTERN = r"# Publisher (?P<publisher>[\w-]+)"
+PUBLISHER_HANDLE_PATTERN = (
+    f"# Publisher (?P<publisher>{_PUBLISHER_ID_PATTERN})")
 # Regex pattern for the first line of the documentation of collections.
 # Example: "Collection google/universal-sentence-encoders/1"
 COLLECTION_HANDLE_PATTERN = (
     "# Collection "
-    r"(?P<publisher>[\w-]+)/"  # Publisher name like "Google".
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
     r"(?P<name>(\w|-|/|&|;|\.)+)/"  # Collection name like "wiki40b-lm".
-    r"(\d+)")  # Integer specifying the collection version like 1.
+    f"({_MODEL_VERSION_PATTERN})")
 # Regex pattern for the line of the documentation describing model metadata.
 # Example: "<!-- fine-tunable: true -->"
 # Note: Both key and value consumes free space characters, but later on these
@@ -134,15 +139,6 @@ REPEATED_TAG_KEYS = (DATASET_KEY, LANGUAGE_KEY, TASK_KEY, ARCHITECTURE_KEY)
 
 # Specifies whether a SavedModel is a Hub Module or a TF1/TF2 SavedModel.
 SAVED_MODEL_FORMATS = ("hub", "saved_model", "saved_model_2")
-
-# Map a handle pattern to the corresponding model type name.
-HANDLE_PATTERN_TO_MODEL_TYPE = {
-    MODEL_HANDLE_PATTERN: "Module",
-    PLACEHOLDER_HANDLE_PATTERN: "Placeholder",
-    LITE_HANDLE_PATTERN: "Lite",
-    TFJS_HANDLE_PATTERN: "Tfjs",
-    CORAL_HANDLE_PATTERN: "Coral"
-}
 
 TARFILE_SUFFIX = ".tar.gz"
 TFLITE_SUFFIX = ".tflite"
@@ -328,8 +324,8 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
       Publisher: {PUBLISHER_HANDLE_PATTERN}
       Collection: {COLLECTION_HANDLE_PATTERN}
       Placeholder: {PLACEHOLDER_HANDLE_PATTERN}
-      For example '# Module google/text-embedding-model/1'. Instead the first
-      line is '{first_line}'"""))
+      For example '# Module google/text-embedding-model/1'.
+      Instead the first line is '{first_line}'"""))
 
   @property
   @abc.abstractmethod

@@ -350,7 +350,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   def test_fail_getting_policy_from_unknown_string(self):
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
-        ".*Instead the first\nline is '# Newmodel google/ALBERT/1'"):
+        ".*Instead the first line is '# Newmodel google/ALBERT/1'"):
       validator.ParsingPolicy.from_string("# Newmodel google/ALBERT/1",
                                           self.parser_by_tag)
 
@@ -491,6 +491,17 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 r".*end with '\.md.'*"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters("Google", "google/tf2", "google:tf2")
+  def test_bad_publisher_id_fails(self, bad_id):
+    self.set_content("root/assets/docs/google/google.md",
+                     PUBLISHER_HANDLE_TEMPLATE % bad_id)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        f".*Instead the first line is '# Publisher {bad_id}'"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 

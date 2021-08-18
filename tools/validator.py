@@ -645,7 +645,7 @@ class SavedModelParsingPolicy(ModelParsingPolicy):
               _check_that_saved_model_pbtxt_parses(tar, tar_member)
               valid_saved_model_proto_found = True
       except tarfile.ReadError as e:
-        raise MarkdownDocumentationError("Could not read tarfile.") from e
+        raise MarkdownDocumentationError(f"Could not read tarfile: {e}") from e
       if not valid_saved_model_proto_found:
         raise MarkdownDocumentationError(
             f"The model from {remote_archive} does not contain a valid "

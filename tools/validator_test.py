@@ -692,6 +692,23 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           root_dir=self.tmp_root_dir,
           files_to_validate=["google/models/text-embedding-model/1.md"])
 
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
+  def test_invalid_asset_archive(self):
+    not_an_archive_path = os.path.join(self.tmp_dir, "no_archive.tar.gz")
+    temp_file = self.create_tempfile(not_an_archive_path, "No tar.gz archive.")
+    self.minimal_markdown_with_bad_model = (
+        MINIMAL_SAVED_MODEL_TEMPLATE % temp_file.full_path)
+    self.set_content(self.markdown_file_path,
+                     self.minimal_markdown_with_bad_model)
+    self.set_up_publisher_page("google")
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*Could not read tarfile: not a gzip file"):
+      validator.validate_documentation_files(
+          validation_config=validator.ValidationConfig(do_smoke_test=True),
+          root_dir=self.tmp_root_dir,
+          files_to_validate=["google/models/text-embedding-model/1.md"])
+
   @parameterized.parameters("saved_model.pb", "saved_model.pbtxt")
   @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
   def test_invalid_saved_model_file_does_not_pass_smoke_test(

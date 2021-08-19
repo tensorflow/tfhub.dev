@@ -243,7 +243,7 @@ multiple lines.
 """
 
 PUBLISHER_HANDLE_TEMPLATE = """# Publisher %s
-Simple description spanning one line.
+The publisher name.
 
 [![Icon URL]](https://path/to/icon.png)
 

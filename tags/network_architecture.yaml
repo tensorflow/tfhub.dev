@@ -111,6 +111,8 @@ values:
     display_name: PNASNet-5 (large)
   - id: progressive-gan
     display_name: Progressive GAN
+  - id: regnety
+    display_name: RegNetY
   - id: reqa
     display_name: ReQA
   - id: resnet

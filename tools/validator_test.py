@@ -243,7 +243,7 @@ multiple lines.
 """
 
 PUBLISHER_HANDLE_TEMPLATE = """# Publisher %s
-Simple description spanning one line.
+The publisher name.
 
 [![Icon URL]](https://path/to/icon.png)
 
@@ -350,7 +350,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   def test_fail_getting_policy_from_unknown_string(self):
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
-        ".*Instead the first\nline is '# Newmodel google/ALBERT/1'"):
+        ".*Instead the first line is '# Newmodel google/ALBERT/1'"):
       validator.ParsingPolicy.from_string("# Newmodel google/ALBERT/1",
                                           self.parser_by_tag)
 
@@ -491,6 +491,17 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 r".*end with '\.md.'*"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters("Google", "google/tf2", "google:tf2")
+  def test_bad_publisher_id_fails(self, bad_id):
+    self.set_content("root/assets/docs/google/google.md",
+                     PUBLISHER_HANDLE_TEMPLATE % bad_id)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        f".*Instead the first line is '# Publisher {bad_id}'"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
@@ -687,6 +698,23 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*not contain a valid saved_model.pb.*"):
+      validator.validate_documentation_files(
+          validation_config=validator.ValidationConfig(do_smoke_test=True),
+          root_dir=self.tmp_root_dir,
+          files_to_validate=["google/models/text-embedding-model/1.md"])
+
+  @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
+  def test_invalid_asset_archive(self):
+    not_an_archive_path = os.path.join(self.tmp_dir, "no_archive.tar.gz")
+    temp_file = self.create_tempfile(not_an_archive_path, "No tar.gz archive.")
+    self.minimal_markdown_with_bad_model = (
+        MINIMAL_SAVED_MODEL_TEMPLATE % temp_file.full_path)
+    self.set_content(self.markdown_file_path,
+                     self.minimal_markdown_with_bad_model)
+    self.set_up_publisher_page("google")
+
+    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
+                                ".*Could not read tarfile: not a gzip file"):
       validator.validate_documentation_files(
           validation_config=validator.ValidationConfig(do_smoke_test=True),
           root_dir=self.tmp_root_dir,

@@ -205,5 +205,5 @@ values:
     display_name: WRN-106
   - id: yolo-v5
     display_name: YOLOv5
-  - id: bit-resnet
-    display_name: BiT-ResNet
+  - id: bit
+    display_name: Big Transfer

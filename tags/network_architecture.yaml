@@ -207,3 +207,5 @@ values:
     display_name: YOLOv5
   - id: bit
     display_name: Big Transfer
+  - id: swin-transformer
+    display_name: Swin Transformer

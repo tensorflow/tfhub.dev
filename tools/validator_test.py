@@ -218,6 +218,9 @@ multiple lines.
 <!-- task: text-embedding -->
 
 ## Overview
+
+Add links to collections to reference models:
+https://tfhub.dev/google/bert/1
 """
 
 COLLECTION_OPTIONAL_TAG_TEMPLATE = """# Collection google/model/1
@@ -230,6 +233,16 @@ multiple lines.
 ## Overview
 """
 
+COLLECTION_CONTENT_TEMPLATE = """# Collection google/model/1
+Simple description spanning
+multiple lines.
+
+<!-- task: text-embedding -->
+
+## Overview
+{content}
+"""
+
 MAXIMAL_COLLECTION = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
@@ -240,6 +253,9 @@ multiple lines.
 <!-- network-architecture: bert -->
 
 ## Overview
+
+Add links to collections to reference models:
+https://tfhub.dev/google/bert/1
 """
 
 PUBLISHER_HANDLE_TEMPLATE = """# Publisher %s
@@ -354,6 +370,52 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.ParsingPolicy.from_string("# Newmodel google/ALBERT/1",
                                           self.parser_by_tag)
 
+  @parameterized.parameters(
+      (validator.SavedModelParsingPolicy,
+       ["ROOT/google/bert/1.md", "ROOT/google/models/bert/1.md"]),
+      (validator.PlaceholderParsingPolicy,
+       ["ROOT/google/bert/1.md", "ROOT/google/models/bert/1.md"]),
+      (validator.LiteParsingPolicy,
+       ["ROOT/google/bert/lite/1.md", "ROOT/google/models/bert/lite/1.md"]),
+      (validator.TfjsParsingPolicy,
+       ["ROOT/google/bert/tfjs/1.md", "ROOT/google/models/bert/tfjs/1.md"]),
+      (validator.CoralParsingPolicy,
+       ["ROOT/google/bert/coral/1.md", "ROOT/google/models/bert/coral/1.md"]))
+  def test_allowed_paths_for_fixed_version(self, policy_class, expected_paths):
+    policy = policy_class({}, "google", "bert", "1")
+    self.assertCountEqual(policy.get_allowed_file_paths("ROOT"), expected_paths)
+
+  @parameterized.parameters(
+      ("https://tfhub.dev/google/albert_base",
+       validator.SavedModelParsingPolicy({}, "google", "albert_base", "*")),
+      ("https://tfhub.dev/google/albert_base/3",
+       validator.SavedModelParsingPolicy({}, "google", "albert_base", "3")),
+      ("https://tfhub.dev/tensorflow/lite-model/densenet/1/metadata",
+       validator.LiteParsingPolicy({}, "tensorflow", "densenet/1/metadata",
+                                   "*")),
+      ("https://tfhub.dev/tensorflow/lite-model/densenet/1/metadata/2",
+       validator.LiteParsingPolicy({}, "tensorflow", "densenet/1/metadata",
+                                   "2")),
+      ("https://tfhub.dev/google/tfjs-model/spice/1/default",
+       validator.TfjsParsingPolicy({}, "google", "spice/1/default", "*")),
+      ("https://tfhub.dev/google/tfjs-model/spice/1/default/2",
+       validator.TfjsParsingPolicy({}, "google", "spice/1/default", "2")),
+      ("https://tfhub.dev/google/coral-model/yamnet/classification/coral",
+       validator.CoralParsingPolicy({}, "google", "yamnet/classification/coral",
+                                    "*")),
+      ("https://tfhub.dev/google/coral-model/yamnet/classification/coral/2",
+       validator.CoralParsingPolicy({}, "google", "yamnet/classification/coral",
+                                    "2")))
+  def test_tfhubdev_regex_yields_correct_groupdict(self, model_url,
+                                                   expected_policy):
+    policies = list(validator._get_policies_for_line_with_model_urls(model_url))
+    self.assertLen(policies, 1)
+    actual_policy = policies[0]
+    self.assertEqual(actual_policy._publisher, expected_policy._publisher)
+    self.assertEqual(actual_policy._model_name, expected_policy._model_name)
+    self.assertEqual(actual_policy._model_version,
+                     expected_policy._model_version)
+
   def test_markdown_parsed_saved_model(self):
     empty_second_line = textwrap.dedent(f"""\
        # Module google/text-embedding-model/1
@@ -445,13 +507,55 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(MINIMAL_COLLECTION, MAXIMAL_COLLECTION)
   def test_collection_markdown_parsed(self, markdown):
+    google_path = "root/assets/docs/google"
     self.set_up_publisher_page("google")
+    self.set_content(f"{google_path}/models/bert/1.md", self.minimal_markdown)
     self.set_content(
-        "root/assets/docs/google/collections/text-embedding-collection/1.md",
-        markdown)
+        f"{google_path}/collections/text-embedding-collection/1.md", markdown)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  def test_collection_with_url_but_no_version_passes(self):
+    google_path = "root/assets/docs/google"
+    self.set_up_publisher_page("google")
+    self.set_content(f"{google_path}/models/bert/3.md", self.minimal_markdown)
+    markdown = COLLECTION_CONTENT_TEMPLATE.format(
+        content="https://tfhub.dev/google/bert")
+    self.set_content(
+        f"{google_path}/collections/text-embedding-collection/1.md", markdown)
+
+    validator.validate_documentation_dir(
+        validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  @parameterized.parameters(
+      ("No model url."), ("http://tfhub.dev/google/bert"),
+      ("https://tfhub.dev/google"), ("https://tfhub.dev/google/"))
+  def test_collection_fails_with_missing_model_url(self, invalid_url):
+    markdown = COLLECTION_CONTENT_TEMPLATE.format(content=invalid_url)
+    self.set_content(
+        "root/assets/docs/google/collections/empty-collection/1.md", markdown)
+
+    with self.assertRaisesWithLiteralMatch(
+        validator.MarkdownDocumentationError,
+        "Found the following errors: {'google/collections/empty-collection/1.md"
+        "': 'A collection needs to contain at least one model URL.'}"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  def test_collection_fails_if_model_does_not_exist(self):
+    markdown = COLLECTION_CONTENT_TEMPLATE.format(
+        content="https://tfhub.dev/google/non-existent/1")
+    self.set_content(
+        "root/assets/docs/google/collections/empty-collection/1.md", markdown)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        ".*No documentation file found in "
+        r"\['.*root/assets/docs/google/non-existent/1.md', "
+        ".*root/assets/docs/google/models/non-existent/1.md.*"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_publisher_markdown_parsed(self):
     self.set_up_publisher_page("some-publisher")
@@ -905,6 +1009,21 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.validate_documentation_dir(
           validation_config=self.validation_config,
           root_dir=self.tmp_root_dir)
+
+  def test_collection_without_contained_model_url_fails(self):
+    self.set_up_publisher_page("google")
+    content = COLLECTION_OPTIONAL_TAG_TEMPLATE.format(
+        tag_key="language", tag_value="en")
+    self.set_content(
+        "root/assets/docs/google/collections/text-embedding-collection/1.md",
+        content)
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        ".*'google/collections/text-embedding-collection/1.md': "
+        "'A collection needs to contain at least one model URL.'}"):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   @parameterized.parameters(
       ("dataset", "dataset"),

@@ -32,13 +32,14 @@ $ python tools/validator.py --root_dir=path_to_project_root
 import abc
 import argparse
 import fnmatch
+import itertools
 import os
 import re
 import subprocess
 import sys
 import tarfile
 import textwrap
-from typing import AbstractSet, Mapping, MutableSequence, Optional, Type, TypeVar
+from typing import AbstractSet, Iterator, Mapping, MutableSequence, Optional, Sequence, Type, TypeVar
 import urllib.request
 
 from absl import app
@@ -58,6 +59,13 @@ FLAGS = None
 
 # Relative path from tfhub.dev/ to the docs/ directory.
 DOCS_PATH = "assets/docs"
+# Path parts to locations where model/collection documentation is stored.
+_COLLECTIONS_DIR = "collections"
+_COLLECTIONS_FILE_NAME = "1.md"  # Collections should only be version 1.
+_MODELS_DIR = "models"
+_TFJS_DIR = "tfjs"
+_LITE_DIR = "lite"
+_CORAL_DIR = "coral"
 
 _PUBLISHER_ID_PATTERN = r"[a-z\d-]+"  # Publisher name like "google".
 _MODEL_NAME_PATTERN = r"[\w.-]+(/[\w.-]+)*"  # Model name like "BERT/uncased".
@@ -109,6 +117,17 @@ COLLECTION_HANDLE_PATTERN = (
     f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"
     r"(?P<name>(\w|-|/|&|;|\.)+)/"  # Collection name like "wiki40b-lm".
     f"({_MODEL_VERSION_PATTERN})")
+# Regex pattern for URLs to model pages on tfhub.dev.
+# Examples:
+# https://tfhub.dev/google/bert
+# https://tfhub.dev/google/bert/4
+# https://tfhub.dev/google/lite-model/yamnet/tflite/1
+_TFHUB_MODEL_URL_PATTERN = re.compile(
+    "https://tfhub.dev/"
+    f"(?P<publisher>{_PUBLISHER_ID_PATTERN})/"  # Publisher name.
+    "(?P<prefix>(tfjs|lite|coral)-model/)?"  # Model-type specific prefix.
+    f"(?P<name>{_MODEL_NAME_PATTERN})"  # Model name including version if set.
+)
 # Regex pattern for the line of the documentation describing model metadata.
 # Example: "<!-- fine-tunable: true -->"
 # Note: Both key and value consumes free space characters, but later on these
@@ -253,10 +272,14 @@ class ValidationConfig:
   Attributes:
     skip_asset_check: A boolean indicating whether the "asset-path" tag should
       be skipped for validation. Defaults to False.
+    skip_content_check: A boolean indicating whether the content that is
+      rendered on the model detail page should be skipped for validation.
+      Defaults to False.
     do_smoke_test: A boolean indicating whether the referenced asset should be
       downloaded. Defaults to False.
   """
   skip_asset_check: bool = False
+  skip_content_check: bool = False
   do_smoke_test: bool = False
 
 
@@ -465,6 +488,10 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
     self._assert_correct_module_types(metadata)
     self._assert_correct_tag_values(metadata)
 
+  def assert_correct_content(self, documentation_dir: str,
+                             lines: Sequence[str]) -> None:
+    """Ensures that the content to be displayed is correct."""
+
 
 class ModelParsingPolicy(ParsingPolicy):
   """Base class for additionally validating the 'asset-path' tag for models.
@@ -488,6 +515,19 @@ class ModelParsingPolicy(ParsingPolicy):
         required_metadata,
         optional_metadata,
         supported_asset_path_suffix=supported_asset_path_suffix)
+
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the paths at which the model documentation can be stored.
+
+    Args:
+      documentation_dir: Absolute path to the `assets/docs` dir.
+
+    Returns:
+      Sequence of paths that can contain the documentation files for the model.
+      Paths can contain wildcards.
+    """
+    # TODO(b/198250794): Migrate to having only exactly one allowed path.
+    raise NotImplementedError
 
   def validate_asset_path(self, validation_config: ValidationConfig,
                           metadata: Mapping[str, AbstractSet[str]],
@@ -562,6 +602,49 @@ class CollectionParsingPolicy(ParsingPolicy):
   def type_name(self) -> str:
     return "Collection"
 
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the absolute paths for PUBLISHER/collections/NAME/1.md."""
+    return [
+        os.path.join(documentation_dir, self._publisher, _COLLECTIONS_DIR,
+                     self._model_name, _COLLECTIONS_FILE_NAME),
+    ]
+
+  def assert_correct_content(self, documentation_dir: str,
+                             lines: Sequence[str]) -> None:
+    """Checks that referenced model pages have existing documentation files.
+
+    A collection should contain at least one link of the form
+    https://tfhub.dev/PUBLISHER/((tfjs|lite|coral)-model/)NAME(/VERSION).
+    For each URL, the corresponding model should have a documentation file.
+
+    Args:
+      documentation_dir: Absolute path to the `assets/docs` directory.
+      lines: Sequence of strings representing the file content.
+
+    Raises:
+      MarkdownDocumentationError:
+        - if no model URL is contained in the collection.
+        - if a model URL is contained whose model does not have a documentation.
+    """
+    super().assert_correct_content(documentation_dir, lines)
+
+    found_one_model = False
+    for line in lines:
+      for policy in _get_policies_for_line_with_model_urls(line):
+        found_one_model = True
+        maybe_wildcard_paths = policy.get_allowed_file_paths(documentation_dir)
+        absolute_paths = map(tf.io.gfile.glob, maybe_wildcard_paths)
+        for absolute_path in itertools.chain.from_iterable(absolute_paths):
+          if tf.io.gfile.exists(absolute_path):
+            break
+        else:
+          raise MarkdownDocumentationError("No documentation file found in "
+                                           f"{maybe_wildcard_paths}.")
+
+    if not found_one_model:
+      raise MarkdownDocumentationError(
+          "A collection needs to contain at least one model URL.")
+
 
 class PlaceholderParsingPolicy(ParsingPolicy):
   """ParsingPolicy for placeholder files."""
@@ -583,6 +666,15 @@ class PlaceholderParsingPolicy(ParsingPolicy):
   @property
   def type_name(self) -> str:
     return "Placeholder"
+
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the absolute paths for PUBLISHER/(models/)NAME/VERSION.md."""
+    return [
+        os.path.join(documentation_dir, self._publisher, self._model_name,
+                     f"{self._model_version}.md"),
+        os.path.join(documentation_dir, self._publisher, _MODELS_DIR,
+                     self._model_name, f"{self._model_version}.md")
+    ]
 
 
 class SavedModelParsingPolicy(ModelParsingPolicy):
@@ -608,6 +700,15 @@ class SavedModelParsingPolicy(ModelParsingPolicy):
   @property
   def type_name(self) -> str:
     return "Module"
+
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the absolute paths for PUBLISHER/(models/)NAME/VERSION.md."""
+    return [
+        os.path.join(documentation_dir, self._publisher, self._model_name,
+                     f"{self._model_version}.md"),
+        os.path.join(documentation_dir, self._publisher, _MODELS_DIR,
+                     self._model_name, f"{self._model_version}.md")
+    ]
 
   def _check_valid_remote_asset(self, remote_archive: str) -> None:
     """Checks whether the remote archive contains valid SavedModel files.
@@ -682,6 +783,15 @@ class TfjsParsingPolicy(ModelParsingPolicy):
   def type_name(self) -> str:
     return "Tfjs"
 
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the paths for PUBLISHER/(models/)MODEL/tfjs/VERSION.md."""
+    return [
+        os.path.join(documentation_dir, self._publisher, self._model_name,
+                     _TFJS_DIR, f"{self._model_version}.md"),
+        os.path.join(documentation_dir, self._publisher, _MODELS_DIR,
+                     self._model_name, _TFJS_DIR, f"{self._model_version}.md")
+    ]
+
 
 class LiteParsingPolicy(ModelParsingPolicy):
   """ParsingPolicy for TFLite documentation."""
@@ -704,6 +814,15 @@ class LiteParsingPolicy(ModelParsingPolicy):
   def type_name(self) -> str:
     return "Lite"
 
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the paths for PUBLISHER/(models/)MODEL/lite/VERSION.md."""
+    return [
+        os.path.join(documentation_dir, self._publisher, self._model_name,
+                     _LITE_DIR, f"{self._model_version}.md"),
+        os.path.join(documentation_dir, self._publisher, _MODELS_DIR,
+                     self._model_name, _LITE_DIR, f"{self._model_version}.md")
+    ]
+
 
 class CoralParsingPolicy(LiteParsingPolicy):
   """ParsingPolicy for Coral documentation."""
@@ -711,6 +830,15 @@ class CoralParsingPolicy(LiteParsingPolicy):
   @property
   def type_name(self) -> str:
     return "Coral"
+
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the paths for PUBLISHER/(models/)MODEL/coral/VERSION.md."""
+    return [
+        os.path.join(documentation_dir, self._publisher, self._model_name,
+                     _CORAL_DIR, f"{self._model_version}.md"),
+        os.path.join(documentation_dir, self._publisher, _MODELS_DIR,
+                     self._model_name, _CORAL_DIR, f"{self._model_version}.md")
+    ]
 
 
 class PublisherParsingPolicy(ParsingPolicy):
@@ -859,6 +987,9 @@ class DocumentationParser:
       # Populate _parsed_metadata with the metadata tag mapping
       self._consume_metadata()
       self.policy.assert_correct_metadata(self._parsed_metadata)
+      if not validation_config.skip_content_check:
+        self.policy.assert_correct_content(self._documentation_dir,
+                                           self._lines[self._current_index:])
       if not validation_config.skip_asset_check:
         self.policy.validate_asset_path(validation_config,
                                         self._parsed_metadata, self._file_path)
@@ -949,6 +1080,13 @@ def validate_documentation_files(validation_config: ValidationConfig,
   logging.info("Found %d matching files - all validated successfully.",
                validated)
 
+
+POLICY_BY_URL_PREFIX = {
+    "lite-model/": LiteParsingPolicy,
+    "coral-model/": CoralParsingPolicy,
+    "tfjs-model/": TfjsParsingPolicy
+}
+
 POLICY_BY_PATTERN = {
     MODEL_HANDLE_PATTERN: SavedModelParsingPolicy,
     PLACEHOLDER_HANDLE_PATTERN: PlaceholderParsingPolicy,
@@ -958,6 +1096,42 @@ POLICY_BY_PATTERN = {
     PUBLISHER_HANDLE_PATTERN: PublisherParsingPolicy,
     COLLECTION_HANDLE_PATTERN: CollectionParsingPolicy
 }
+
+
+def _get_policies_for_line_with_model_urls(
+    line: str) -> Iterator[ModelParsingPolicy]:
+  """Yields a parsing policy for models that correspond to found tfhub.dev URLs.
+
+  For each tfhub.dev URL that can be found in the given string, the
+  corresponding parsing policy is yielded. The URL must match
+  https://tfhub.dev/PUBLISHER/((tfjs|lite|coral)-model/)NAME(/VERSION) so a
+  PUBLISHER and a NAME must be specified while a VERSION is optional. If no
+  version is specified, a '*' will be used to simplify finding all documentation
+  files that could be rendered.
+
+  Args:
+    line: String that could contain a tfhub.dev model URL.
+
+  Yields:
+    A ModelParsingPolicy which can be used to find the documentation files for
+    the model corresponding to the URL.
+  """
+  for url_match in _TFHUB_MODEL_URL_PATTERN.finditer(line):
+    groupdict = url_match.groupdict()
+    publisher = groupdict.get("publisher")
+    prefix = groupdict.get("prefix")
+    name = groupdict.get("name")
+
+    trailing_version = re.search(rf"(?<=/){_MODEL_VERSION_PATTERN}$", name)
+    if trailing_version is None:
+      version = "*"
+    else:
+      # Move the trailing version from the model name to version.
+      version = trailing_version.group(0)
+      name = re.sub(f"/{version}$", "", name)
+
+    policy_class = POLICY_BY_URL_PREFIX.get(prefix, SavedModelParsingPolicy)
+    yield policy_class({}, publisher, name, version)
 
 
 def main(_):

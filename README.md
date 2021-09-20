@@ -1,4 +1,5 @@
 # External contributions to tfhub.dev
+[![Documentation markdown validator](https://github.com/tensorflow/tfhub.dev/actions/workflows/contributions-validator.yml/badge.svg?branch=master)](https://github.com/tensorflow/tfhub.dev/actions/workflows/contributions-validator.yml)
 
 ## Overview
 This repository serves for storing documentation for models to be published on

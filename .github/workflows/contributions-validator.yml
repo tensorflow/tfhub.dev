@@ -16,6 +16,8 @@ name: Documentation markdown validator
 
 on:
   pull_request:
+  push:
+    branches: [ master ]
 
 jobs:
   test-changed-md-files:

@@ -270,6 +270,9 @@ class ValidationConfig:
   """A simple value class containing information for the validation process.
 
   Attributes:
+    skip_file_path_check: A boolean indicating whether the check should be
+      skipped that ensures that files are only stored at their allowed paths.
+      Defaults to False.
     skip_asset_check: A boolean indicating whether the "asset-path" tag should
       be skipped for validation. Defaults to False.
     skip_content_check: A boolean indicating whether the content that is
@@ -278,6 +281,7 @@ class ValidationConfig:
     do_smoke_test: A boolean indicating whether the referenced asset should be
       downloaded. Defaults to False.
   """
+  skip_file_path_check: bool = False
   skip_asset_check: bool = False
   skip_content_check: bool = False
   do_smoke_test: bool = False
@@ -361,25 +365,52 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
     return self._publisher
 
   @property
+  def id(self) -> str:
+    return f"{self.publisher}/{self._model_name}/{self._model_version}"
+
+  @property
   def supported_metadata(self) -> AbstractSet[str]:
     """Return which metadata tags are supported."""
     return set.union(self._required_metadata, self._optional_metadata)
 
-  def get_top_level_dir(self, root_dir: str) -> str:
-    """Returns the top level publisher directory."""
-    return os.path.join(root_dir, self._publisher)
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns the paths at which the documentation can be stored.
 
-  def assert_correct_file_path(self, file_path: str, root_dir: str) -> None:
-    if not file_path.endswith(".md"):
-      raise MarkdownDocumentationError(
-          "Documentation file does not end with '.md': %s" % file_path)
+    Args:
+      documentation_dir: Absolute path to the `assets/docs` dir.
 
-    publisher_dir = self.get_top_level_dir(root_dir)
-    if not file_path.startswith(publisher_dir + "/"):
+    Returns:
+      Sequence of paths that can contain the documentation files for the model.
+      Paths can contain wildcards.
+    """
+    # TODO(b/198250794): Migrate to having only exactly one allowed path.
+    raise NotImplementedError
+
+  def assert_correct_file_path(self, file_path: str,
+                               documentation_dir: str) -> None:
+    """Checks that the file is stored at an allowed location.
+
+    Model documentation should be stored at
+    PUBLISHER/(models/)NAME/(tfjs/|lite/|coral/)VERSION.md, collections at
+    PUBLISHER/collections/NAME/1.md and publisher documentation files at
+    PUBLISHER/PUBLISHER.md.
+
+    Args:
+      file_path: Relative path to the file from the `assets/docs` directory.
+      documentation_dir: Absolute path to the `assets/docs` dir.
+
+    Raises:
+      MarkdownDocumentationError:
+        - if the file is not stored at an allowed location.
+    """
+    maybe_wildcard_paths = self.get_allowed_file_paths(documentation_dir)
+    absolute_paths = map(tf.io.gfile.glob, maybe_wildcard_paths)
+    flat_absolute_paths = list(itertools.chain.from_iterable(absolute_paths))
+    actual_path = os.path.join(documentation_dir, file_path)
+    if actual_path not in flat_absolute_paths:
       raise MarkdownDocumentationError(
-          "Documentation file is not on a correct path. Documentation for a "
-          f"{self.type_name} with publisher '{self._publisher}' should be "
-          f"placed in the publisher directory: '{publisher_dir}'")
+          f"Expected {self.id} to have documentation stored in one of "
+          f"{maybe_wildcard_paths} but was {actual_path}.")
 
   def validate_asset_path(self, validation_config: ValidationConfig,
                           metadata: Mapping[str, AbstractSet[str]],
@@ -516,19 +547,6 @@ class ModelParsingPolicy(ParsingPolicy):
         optional_metadata,
         supported_asset_path_suffix=supported_asset_path_suffix)
 
-  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
-    """Returns the paths at which the model documentation can be stored.
-
-    Args:
-      documentation_dir: Absolute path to the `assets/docs` dir.
-
-    Returns:
-      Sequence of paths that can contain the documentation files for the model.
-      Paths can contain wildcards.
-    """
-    # TODO(b/198250794): Migrate to having only exactly one allowed path.
-    raise NotImplementedError
-
   def validate_asset_path(self, validation_config: ValidationConfig,
                           metadata: Mapping[str, AbstractSet[str]],
                           file_path: str) -> None:
@@ -601,6 +619,10 @@ class CollectionParsingPolicy(ParsingPolicy):
   @property
   def type_name(self) -> str:
     return "Collection"
+
+  @property
+  def id(self) -> str:
+    return f"{self.publisher}/{self._model_name}"
 
   def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
     """Returns the absolute paths for PUBLISHER/collections/NAME/1.md."""
@@ -862,19 +884,15 @@ class PublisherParsingPolicy(ParsingPolicy):
   def type_name(self) -> str:
     return "Publisher"
 
-  def get_expected_file_path(self, root_dir: str) -> str:
-    """Returns the expected path of the documentation file."""
-    return os.path.join(root_dir, self._publisher, self._publisher + ".md")
+  @property
+  def id(self) -> str:
+    return self.publisher
 
-  def assert_correct_file_path(self, file_path: str, root_dir: str) -> None:
-    """Extend base method by also checking for /publisher/publisher.md."""
-    expected_file_path = self.get_expected_file_path(root_dir)
-    if expected_file_path and file_path != expected_file_path:
-      raise MarkdownDocumentationError(
-          "Documentation file is not on a correct path. Documentation for the "
-          f"publisher '{self.publisher}' should be submitted to "
-          f"'{expected_file_path}'")
-    super().assert_correct_file_path(file_path, root_dir)
+  def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
+    """Returns a Sequence including the path to PUBLISHER/PUBLISHER.md."""
+    return [
+        os.path.join(documentation_dir, self.publisher, f"{self.publisher}.md")
+    ]
 
 
 class DocumentationParser:
@@ -910,8 +928,8 @@ class DocumentationParser:
     # Use a publisher policy to get the expected documentation page path.
     publisher_policy = PublisherParsingPolicy(self._yaml_parser_by_tag_name,
                                               self.policy.publisher)
-    expected_publisher_doc_file_path = publisher_policy.get_expected_file_path(
-        self._documentation_dir)
+    expected_publisher_doc_file_path = publisher_policy.get_allowed_file_paths(
+        self._documentation_dir)[0]
     if not tf.io.gfile.exists(expected_publisher_doc_file_path):
       self._raise_error(
           "Publisher documentation does not exist. "
@@ -980,8 +998,10 @@ class DocumentationParser:
                                             self._yaml_parser_by_tag_name)
 
     try:
-      self.policy.assert_correct_file_path(self._file_path,
-                                           self._documentation_dir)
+      self._assert_publisher_page_exists()
+      if not validation_config.skip_file_path_check:
+        self.policy.assert_correct_file_path(self._file_path,
+                                             self._documentation_dir)
       # Populate _parsed_description with the description
       self._consume_description()
       # Populate _parsed_metadata with the metadata tag mapping
@@ -995,7 +1015,6 @@ class DocumentationParser:
                                         self._parsed_metadata, self._file_path)
     except MarkdownDocumentationError as e:
       self._raise_error(str(e))
-    self._assert_publisher_page_exists()
 
 
 def validate_documentation_dir(validation_config: ValidationConfig,

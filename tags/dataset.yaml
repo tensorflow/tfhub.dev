@@ -165,5 +165,7 @@ values:
     display_name: WSVD
   - id: youtube-8m
     display_name: YouTube-8M
+  - id: stl10
+    display_name: STL-10
   - id: other
     display_name: Other

@@ -209,3 +209,5 @@ values:
     display_name: Big Transfer
   - id: swin-transformer
     display_name: Swin Transformer
+  - id: nnclr
+    display_name: NNCLR

@@ -27,6 +27,15 @@ import filesystem_utils
 import validator
 import yaml_parser
 
+_GOOGLE_PUBLISHER = "google"
+_MODEL_HANDLE = f"{_GOOGLE_PUBLISHER}/text-embedding-model/1"
+_RELATIVE_SAVED_MODEL_PATH = f"{_MODEL_HANDLE}.md"
+_RELATIVE_TFJS_PATH = f"{_GOOGLE_PUBLISHER}/text-embedding-model/tfjs/1.md"
+_RELATIVE_LITE_PATH = f"{_GOOGLE_PUBLISHER}/text-embedding-model/lite/1.md"
+_RELATIVE_CORAL_PATH = f"{_GOOGLE_PUBLISHER}/text-embedding-model/coral/1.md"
+_ABSOLUTE_COLLECTION_PATH = (
+    "root/assets/docs/google/collections/text-embedding-collection/1.md")
+
 ARCHITECTURE_YAML = """
 values:
   - id: bert
@@ -93,7 +102,7 @@ TAG_FILE_NAME_TO_CONTENT_MAP = {
 
 LEGACY_VALUE = "legacy"
 
-MINIMAL_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
+MINIMAL_SAVED_MODEL_TEMPLATE = f"""# Module {_MODEL_HANDLE}
 Simple description spanning
 multiple lines.
 
@@ -105,7 +114,7 @@ multiple lines.
 ## Overview
 """
 
-SAVED_MODEL_OPTIONAL_TAG_TEMPLATE = """# Module google/model/1
+SAVED_MODEL_OPTIONAL_TAG_TEMPLATE = """# Module google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
@@ -116,7 +125,7 @@ multiple lines.
 <!-- {tag_key}: {tag_value} -->
 """
 
-SAVED_MODEL_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
+SAVED_MODEL_WITHOUT_DESCRIPTION = f"""# Module {_MODEL_HANDLE}
 
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- format: saved_model_2 -->
@@ -124,14 +133,15 @@ SAVED_MODEL_WITHOUT_DESCRIPTION = """# Module google/text-embedding-model/1
 ## Overview
 """
 
-SAVED_MODEL_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK = """# Module google/text-embedding-model/1
+SAVED_MODEL_WITHOUT_DESCRIPTION_WITHOUT_LINEBREAK = textwrap.dedent(f"""\
+# Module {_MODEL_HANDLE}
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- format: saved_model_2 -->
 
 ## Overview
-"""
+""")
 
-SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE = """# Module google/model/1
+SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE = """# Module google/text-embedding-model/1
 One line description.
 <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
 <!-- task: text-classification -->
@@ -144,7 +154,7 @@ One line description.
 ## Overview
 """
 
-MAXIMAL_SAVED_MODEL_TEMPLATE = """# Module google/text-embedding-model/1
+MAXIMAL_SAVED_MODEL_TEMPLATE = f"""# Module {_MODEL_HANDLE}
 Simple description spanning
 multiple lines.
 
@@ -162,7 +172,7 @@ multiple lines.
 ## Overview
 """
 
-MINIMAL_PLACEHOLDER = """# Placeholder google/text-embedding-model/1
+MINIMAL_PLACEHOLDER = f"""# Placeholder {_MODEL_HANDLE}
 Simple description spanning
 multiple lines.
 
@@ -177,7 +187,7 @@ multiple lines.
 <!-- {tag_key}: {tag_value} -->
 """
 
-MAXIMAL_PLACEHOLDER = """# Placeholder google/text-embedding-model/1
+MAXIMAL_PLACEHOLDER = f"""# Placeholder {_MODEL_HANDLE}
 Simple description spanning
 multiple lines.
 
@@ -190,7 +200,7 @@ multiple lines.
 <!-- license: apache-2.0 -->
 """
 
-LITE_OPTIONAL_TAG_TEMPLATE = """# Lite google/model/lite/1
+LITE_OPTIONAL_TAG_TEMPLATE = """# Lite google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
@@ -201,7 +211,18 @@ multiple lines.
 ## Overview
 """
 
-TFJS_OPTIONAL_TAG_TEMPLATE = """# Tfjs google/text-embedding-model/tfjs/1
+CORAL_OPTIONAL_TAG_TEMPLATE = """# Coral google/text-embedding-model/1
+Simple description spanning
+multiple lines.
+
+<!-- asset-path: /path/to/model.tflite -->
+<!-- parent-model: google/text-embedding-model/1 -->
+<!-- {tag_key}: {tag_value} -->
+
+## Overview
+"""
+
+TFJS_OPTIONAL_TAG_TEMPLATE = """# Tfjs google/text-embedding-model/1
 Simple description spanning
 multiple lines.
 
@@ -223,7 +244,7 @@ Add links to collections to reference models:
 https://tfhub.dev/google/bert/1
 """
 
-COLLECTION_OPTIONAL_TAG_TEMPLATE = """# Collection google/model/1
+COLLECTION_OPTIONAL_TAG_TEMPLATE = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
 
@@ -233,7 +254,7 @@ multiple lines.
 ## Overview
 """
 
-COLLECTION_CONTENT_TEMPLATE = """# Collection google/model/1
+COLLECTION_CONTENT_TEMPLATE = """# Collection google/text-embedding-collection/1
 Simple description spanning
 multiple lines.
 
@@ -289,7 +310,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.save_dummy_model_archive(self.model_path, extra_file_name)
     self.minimal_markdown = MINIMAL_SAVED_MODEL_TEMPLATE % self.model_path
     self.set_content(markdown_file_path, self.minimal_markdown)
-    self.set_up_publisher_page("google")
     return validator.DocumentationParser(self.tmp_root_dir, self.tmp_docs_dir,
                                          self.parser_by_tag)
 
@@ -306,6 +326,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.markdown_file_path = "root/assets/docs/google/models/text-embedding-model/1.md"
     for file_name, content in TAG_FILE_NAME_TO_CONTENT_MAP.items():
       self.set_content(f"root/tags/{file_name}", content)
+    self.set_up_publisher_page(_GOOGLE_PUBLISHER)
     self.asset_path_modified = mock.patch.object(
         validator, "_is_asset_path_modified", return_value=True)
     self.enumerable_parser = yaml_parser.EnumerableYamlParser(
@@ -380,7 +401,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       (validator.TfjsParsingPolicy,
        ["ROOT/google/bert/tfjs/1.md", "ROOT/google/models/bert/tfjs/1.md"]),
       (validator.CoralParsingPolicy,
-       ["ROOT/google/bert/coral/1.md", "ROOT/google/models/bert/coral/1.md"]))
+       ["ROOT/google/bert/coral/1.md", "ROOT/google/models/bert/coral/1.md"]),
+      (validator.PublisherParsingPolicy, ["ROOT/google/google.md"]))
   def test_allowed_paths_for_fixed_version(self, policy_class, expected_paths):
     policy = policy_class({}, "google", "bert", "1")
     self.assertCountEqual(policy.get_allowed_file_paths("ROOT"), expected_paths)
@@ -418,7 +440,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_markdown_parsed_saved_model(self):
     empty_second_line = textwrap.dedent(f"""\
-       # Module google/text-embedding-model/1
+       # Module {_MODEL_HANDLE}
 
        Simple description spanning
        multiple lines.
@@ -432,7 +454,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     for markdown in [
         self.minimal_markdown, self.maximal_markdown, empty_second_line
     ]:
-      self.set_up_publisher_page("google")
       self.set_content(self.markdown_file_path, markdown)
 
       validator.validate_documentation_dir(
@@ -440,7 +461,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   @parameterized.parameters(MINIMAL_PLACEHOLDER, MAXIMAL_PLACEHOLDER)
   def test_markdown_parsed_placeholder(self, markdown):
-    self.set_up_publisher_page("google")
     self.set_content(self.markdown_file_path, markdown)
 
     validator.validate_documentation_dir(
@@ -449,7 +469,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   def test_minimal_markdown_parsed_lite(self):
     lite_model = os.path.join(self.tmp_dir, "model.tflite")
     content = textwrap.dedent(f"""\
-      # Lite google/text-embedding-model/lite/1
+      # Lite {_MODEL_HANDLE}
       Simple description spanning
       multiple lines.
 
@@ -457,15 +477,15 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- parent-model: google/text-embedding-model/1 -->
 
       ## Overview""")
-    self.set_content(self.markdown_file_path, content)
-    self.set_up_publisher_page("google")
+    self.set_content(
+        os.path.join(self.tmp_docs_dir, _RELATIVE_LITE_PATH), content)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_tfjs(self):
     content = textwrap.dedent(f"""\
-      # Tfjs google/text-embedding-model/tfjs/1
+      # Tfjs {_MODEL_HANDLE}
       Simple description spanning
       multiple lines.
 
@@ -473,8 +493,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- parent-model:   google/text-embedding-model/1   -->
 
       ## Overview""")
-    self.set_content(self.markdown_file_path, content)
-    self.set_up_publisher_page("google")
+    self.set_content(
+        os.path.join(self.tmp_docs_dir, _RELATIVE_TFJS_PATH), content)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
@@ -482,7 +502,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   def test_minimal_markdown_parsed_coral(self):
     lite_model = os.path.join(self.tmp_dir, "model.tflite")
     content = textwrap.dedent(f"""\
-      # Coral google/text-embedding-model/coral/1
+      # Coral {_MODEL_HANDLE}
       Simple description spanning
       multiple lines.
 
@@ -490,15 +510,14 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- parent-model:   google/text-embedding-model/1   -->
 
       ## Overview""")
-    self.set_content(self.markdown_file_path, content)
-    self.set_up_publisher_page("google")
+    self.set_content(
+        os.path.join(self.tmp_docs_dir, _RELATIVE_CORAL_PATH), content)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_minimal_markdown_parsed_with_selected_files(self):
     self.set_content(self.markdown_file_path, self.minimal_markdown)
-    self.set_up_publisher_page("google")
 
     validator.validate_documentation_files(
         validation_config=self.validation_config,
@@ -508,22 +527,36 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   @parameterized.parameters(MINIMAL_COLLECTION, MAXIMAL_COLLECTION)
   def test_collection_markdown_parsed(self, markdown):
     google_path = "root/assets/docs/google"
-    self.set_up_publisher_page("google")
-    self.set_content(f"{google_path}/models/bert/1.md", self.minimal_markdown)
-    self.set_content(
-        f"{google_path}/collections/text-embedding-collection/1.md", markdown)
+    model_content = textwrap.dedent("""\
+      # Module google/bert/1
+      One line description.
+      <!-- asset-path: https://domain.test/path/to/bert/1.tar.gz -->
+      <!-- format: saved_model_2 -->
+      <!-- task: text-embedding -->
+      <!-- fine-tunable: false -->
+
+      ## Overview""")
+    self.set_content(f"{google_path}/models/bert/1.md", model_content)
+    self.set_content(_ABSOLUTE_COLLECTION_PATH, markdown)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_collection_with_url_but_no_version_passes(self):
     google_path = "root/assets/docs/google"
-    self.set_up_publisher_page("google")
-    self.set_content(f"{google_path}/models/bert/3.md", self.minimal_markdown)
+    model_content = textwrap.dedent("""\
+      # Module google/bert/3
+      One line description.
+      <!-- asset-path: https://domain.test/path/to/bert/3.tar.gz -->
+      <!-- format: saved_model_2 -->
+      <!-- task: text-embedding -->
+      <!-- fine-tunable: false -->
+
+      ## Overview""")
+    self.set_content(f"{google_path}/models/bert/3.md", model_content)
     markdown = COLLECTION_CONTENT_TEMPLATE.format(
         content="https://tfhub.dev/google/bert")
-    self.set_content(
-        f"{google_path}/collections/text-embedding-collection/1.md", markdown)
+    self.set_content(_ABSOLUTE_COLLECTION_PATH, markdown)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
@@ -533,21 +566,19 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       ("https://tfhub.dev/google"), ("https://tfhub.dev/google/"))
   def test_collection_fails_with_missing_model_url(self, invalid_url):
     markdown = COLLECTION_CONTENT_TEMPLATE.format(content=invalid_url)
-    self.set_content(
-        "root/assets/docs/google/collections/empty-collection/1.md", markdown)
+    self.set_content(_ABSOLUTE_COLLECTION_PATH, markdown)
 
     with self.assertRaisesWithLiteralMatch(
         validator.MarkdownDocumentationError,
-        "Found the following errors: {'google/collections/empty-collection/1.md"
-        "': 'A collection needs to contain at least one model URL.'}"):
+        "Found the following errors: {'google/collections/text-embedding-collec"
+        "tion/1.md': 'A collection needs to contain at least one model URL.'}"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_collection_fails_if_model_does_not_exist(self):
     markdown = COLLECTION_CONTENT_TEMPLATE.format(
         content="https://tfhub.dev/google/non-existent/1")
-    self.set_content(
-        "root/assets/docs/google/collections/empty-collection/1.md", markdown)
+    self.set_content(_ABSOLUTE_COLLECTION_PATH, markdown)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -564,7 +595,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_invalid_markdown_fails(self):
-    self.set_content("root/assets/docs/publisher/model/1.md",
+    self.set_content("root/assets/docs/google/model/1.md",
                      "INVALID MARKDOWN")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
@@ -572,29 +603,55 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_minimal_markdown_not_in_publisher_dir(self):
-    self.set_content("root/assets/docs/gooogle/models/wrong-location/1.md",
-                     self.minimal_markdown)
-
-    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                ".*placed in the publisher directory.*"):
-      validator.validate_documentation_dir(
-          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
-
   def test_fails_if_publisher_page_does_not_exist(self):
-    self.set_content(self.markdown_file_path, self.minimal_markdown)
+    model_content = textwrap.dedent("""\
+      # Module deepmind/model/1
+      One line description.
+      <!-- asset-path: https://domain.test/path/to/model/1.tar.gz -->
+      <!-- format: saved_model_2 -->
+      <!-- task: text-embedding -->
+      <!-- fine-tunable: false -->
+
+      ## Overview""")
+    self.set_content(
+        os.path.join(self.tmp_docs_dir, "deepmind/model/1"), model_content)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*Publisher documentation does not.*"):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  def test_minimal_markdown_does_not_end_with_md_fails(self):
-    self.set_content("root/assets/docs/google/models/wrong-extension/1.mdz",
-                     self.minimal_markdown)
+  @parameterized.parameters(
+      ("Module", "google/model/1",
+       r"\[.*google/model/1.md', '.*google/models/model/1.md'\]"),
+      ("Placeholder", "google/model/1",
+       r"\[.*google/model/1.md', '.*google/models/model/1.md'\]"),
+      ("Tfjs", "google/model/1",
+       r"\[.*google/model/tfjs/1.md', '.*google/models/model/tfjs/1.md'\]"),
+      ("Lite", "google/model/1",
+       r"\[.*google/model/lite/1.md', '.*google/models/model/lite/1.md'\]"),
+      ("Coral", "google/model/1",
+       r"\[.*google/model/coral/1.md', '.*google/models/model/coral/1.md'\]"),
+      ("Collection", "google/model", r"\['.*google/collections/model/1.md'\]"))
+  def test_fails_if_documentation_is_stored_in_wrong_location(
+      self, model_type, handle, allowed_path_regexs):
+    self.set_content("root/assets/docs/google/models/wrong-location/1.md",
+                     f"# {model_type} google/model/1")
 
-    with self.assertRaisesRegex(validator.MarkdownDocumentationError,
-                                r".*end with '\.md.'*"):
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        fr".*Expected {handle} to have documentation stored in one of "
+        f"{allowed_path_regexs} but was .*google/models/wrong-location/1.md."):
+      validator.validate_documentation_dir(
+          validation_config=self.validation_config, root_dir=self.tmp_root_dir)
+
+  def test_fails_if_publisher_is_stored_in_wrong_location(self):
+    self.set_content("root/assets/docs/google/1.md", "# Publisher google")
+
+    with self.assertRaisesRegex(
+        validator.MarkdownDocumentationError,
+        ".*Expected google to have documentation stored in one of "
+        r"\[.*google/google.md'\] but was .*google/1.md."):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
@@ -630,7 +687,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     content = textwrap.dedent("""\
       # Module %s
       Simple description.""" % handle)
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*First line of the documentation*"):
@@ -648,8 +705,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_missing_metadata(self):
-    content = textwrap.dedent("""\
-      # Module google/text-embedding-model/1
+    content = textwrap.dedent(f"""\
+      # Module {_MODEL_HANDLE}
       One line description.
       <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
       <!-- format: saved_model_2 -->
@@ -663,8 +720,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unsupported_format_metadata(self):
-    content = textwrap.dedent("""\
-      # Module google/model/1
+    content = textwrap.dedent(f"""\
+      # Module {_MODEL_HANDLE}
       Simple description.
 
       <!-- asset-path: /path/to/model.tar.gz -->
@@ -683,8 +740,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_forbidden_duplicate_metadata(self):
-    content = textwrap.dedent("""\
-      # Module google/model/1
+    content = textwrap.dedent(f"""\
+      # Module {_MODEL_HANDLE}
       One line description.
       <!-- asset-path: https://path/to/text-embedding-model/model.tar.gz -->
       <!-- asset-path: https://path/to/text-embedding-model/model2.tar.gz -->
@@ -704,20 +761,19 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       ("dataset", ["mnist", "wikipedia"]), ("language", ["en", "fr"]),
       ("network-architecture", ["bert", "transformer"]))
   def test_markdown_with_allowed_duplicate_metadata(self, tag_key, tag_values):
-    self.set_up_publisher_page("google")
     content = SAVED_MODEL_OPTIONAL_TAGS_TEMPLATE.format(
         tag_key_1=tag_key,
         tag_key_2=tag_key,
         tag_value_1=tag_values[0],
         tag_value_2=tag_values[1])
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(self.markdown_file_path, content)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_unexpected_lines(self):
-    content = textwrap.dedent("""\
-      # Module google/text-embedding-model/1
+    content = textwrap.dedent(f"""\
+      # Module {_MODEL_HANDLE}
       One line description.
 
       This should not be here.
@@ -733,7 +789,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_minimal_markdown_parsed_full(self):
     self.set_content(self.markdown_file_path, self.minimal_markdown)
-    self.set_up_publisher_page("google")
     documentation_parser = validator.DocumentationParser(
         self.tmp_root_dir, self.tmp_docs_dir, self.parser_by_tag)
 
@@ -755,7 +810,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.set_content(
         self.markdown_file_path, MINIMAL_SAVED_MODEL_TEMPLATE %
         "https://github.com/some_repo/releases/download/some_path.tar.gz")
-    self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*cannot be automatically fetched.*"):
@@ -767,7 +821,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   def test_asset_path_is_legacy_and_modified(self):
     self.set_content(self.markdown_file_path,
                      MINIMAL_SAVED_MODEL_TEMPLATE % LEGACY_VALUE)
-    self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*end with .tar.gz but was legacy."):
@@ -782,7 +835,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
     self.asset_path_modified.start()
     self.set_content(self.markdown_file_path,
                      MINIMAL_SAVED_MODEL_TEMPLATE % LEGACY_VALUE)
-    self.set_up_publisher_page("google")
 
     validator.validate_documentation_files(
         validation_config=self.validation_config,
@@ -798,7 +850,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         MINIMAL_SAVED_MODEL_TEMPLATE % not_a_model_path)
     self.set_content(self.markdown_file_path,
                      self.minimal_markdown_with_bad_model)
-    self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*not contain a valid saved_model.pb.*"):
@@ -815,7 +866,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         MINIMAL_SAVED_MODEL_TEMPLATE % temp_file.full_path)
     self.set_content(self.markdown_file_path,
                      self.minimal_markdown_with_bad_model)
-    self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*Could not read tarfile: not a gzip file"):
@@ -835,7 +885,6 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
         MINIMAL_SAVED_MODEL_TEMPLATE % not_a_model_path)
     self.set_content(self.markdown_file_path,
                      self.minimal_markdown_with_bad_model)
-    self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 f".*Could not parse {saved_model_name}.*"):
@@ -849,7 +898,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       ("Open Demo", "https://teachablemachine.withgoogle.com/train/pose"))
   def test_fail_on_deprecated_markdown_buttons(self, button_text, button_value):
     content = textwrap.dedent(f"""\
-      # Module google/text-embedding-model/1
+      # Module {_MODEL_HANDLE}
       One line description.
       <!-- asset-path: https://path/to/model.tar.gz -->
       <!-- task: text-embedding -->
@@ -859,8 +908,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       [![{button_text}]]({button_value})
 
       ## Overview""")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
-    self.set_up_publisher_page("google")
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -869,8 +917,8 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_markdown_with_bad_module_type(self):
-    content = textwrap.dedent("""\
-      # Module google/model/1
+    content = textwrap.dedent(f"""\
+      # Module {_MODEL_HANDLE}
       Simple description spanning
       multiple lines.
 
@@ -880,8 +928,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       <!-- format: saved_model_2 -->
 
       # Overview""")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
-    self.set_up_publisher_page("google")
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -892,10 +939,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
 
   def test_markdown_with_forbidden_format_metadata(self):
     self.set_content(
-        "root/assets/docs/google/models/model/1.md",
+        os.path.join(self.tmp_docs_dir, _RELATIVE_LITE_PATH),
         LITE_OPTIONAL_TAG_TEMPLATE.format(
             tag_key="format", tag_value="saved_model"))
-    self.set_up_publisher_page("google")
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -903,15 +949,17 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  @parameterized.parameters(PLACEHOLDER_OPTIONAL_TAG_TEMPLATE,
-                            SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
-                            LITE_OPTIONAL_TAG_TEMPLATE,
-                            TFJS_OPTIONAL_TAG_TEMPLATE)
-  def test_markdown_with_unsupported_metadata(self, markdown_template):
-    self.set_up_publisher_page("google")
+  @parameterized.parameters(
+      (PLACEHOLDER_OPTIONAL_TAG_TEMPLATE, _RELATIVE_SAVED_MODEL_PATH),
+      (SAVED_MODEL_OPTIONAL_TAG_TEMPLATE, _RELATIVE_SAVED_MODEL_PATH),
+      (LITE_OPTIONAL_TAG_TEMPLATE, _RELATIVE_LITE_PATH),
+      (CORAL_OPTIONAL_TAG_TEMPLATE, _RELATIVE_CORAL_PATH),
+      (TFJS_OPTIONAL_TAG_TEMPLATE, _RELATIVE_TFJS_PATH))
+  def test_markdown_with_unsupported_metadata(self, markdown_template,
+                                              rel_file_path):
     content = markdown_template.format(
         tag_key="unsupported_tag", tag_value="value")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(os.path.join(self.tmp_docs_dir, rel_file_path), content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -919,28 +967,30 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       validator.validate_documentation_dir(
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
-                            TFJS_OPTIONAL_TAG_TEMPLATE,
-                            LITE_OPTIONAL_TAG_TEMPLATE)
-  def test_markdown_with_valid_colab_url(self, template):
-    self.set_up_publisher_page("google")
+  @parameterized.parameters(
+      (SAVED_MODEL_OPTIONAL_TAG_TEMPLATE, _RELATIVE_SAVED_MODEL_PATH),
+      (TFJS_OPTIONAL_TAG_TEMPLATE, _RELATIVE_TFJS_PATH),
+      (LITE_OPTIONAL_TAG_TEMPLATE, _RELATIVE_LITE_PATH),
+      (CORAL_OPTIONAL_TAG_TEMPLATE, _RELATIVE_CORAL_PATH))
+  def test_markdown_with_valid_colab_url(self, template, relative_path):
     content = template.format(
         tag_key="colab",
         tag_value="https://colab.research.google.com/mycolab.ipynb")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(os.path.join(self.tmp_docs_dir, relative_path), content)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
-  @parameterized.parameters(SAVED_MODEL_OPTIONAL_TAG_TEMPLATE,
-                            TFJS_OPTIONAL_TAG_TEMPLATE,
-                            LITE_OPTIONAL_TAG_TEMPLATE)
-  def test_markdown_with_bad_colab_url_fails(self, template):
-    self.set_up_publisher_page("google")
+  @parameterized.parameters(
+      (SAVED_MODEL_OPTIONAL_TAG_TEMPLATE, _RELATIVE_SAVED_MODEL_PATH),
+      (TFJS_OPTIONAL_TAG_TEMPLATE, _RELATIVE_TFJS_PATH),
+      (LITE_OPTIONAL_TAG_TEMPLATE, _RELATIVE_LITE_PATH),
+      (CORAL_OPTIONAL_TAG_TEMPLATE, _RELATIVE_CORAL_PATH))
+  def test_markdown_with_bad_colab_url_fails(self, template, relative_path):
     content = template.format(
         tag_key="colab",
         tag_value="https://github.com/mycolab.ipynb")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(os.path.join(self.tmp_docs_dir, relative_path), content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -949,19 +999,19 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_demo_tag_on_tfjs_model(self):
-    self.set_up_publisher_page("google")
     content = TFJS_OPTIONAL_TAG_TEMPLATE.format(
         tag_key="demo", tag_value="https://mydemo.com")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(
+        os.path.join(self.tmp_docs_dir, _RELATIVE_TFJS_PATH), content)
 
     validator.validate_documentation_dir(
         validation_config=self.validation_config, root_dir=self.tmp_root_dir)
 
   def test_demo_tag_on_tfjs_model_with_unsecure_url_fails(self):
-    self.set_up_publisher_page("google")
     content = TFJS_OPTIONAL_TAG_TEMPLATE.format(
         tag_key="demo", tag_value="http://the-unsecure-page.com")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(
+        os.path.join(self.tmp_docs_dir, _RELATIVE_TFJS_PATH), content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -979,10 +1029,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   )
   def test_saved_model_markdown_with_unsupported_tag_value(
       self, tag_key, yaml_file_name):
-    self.set_up_publisher_page("google")
     content = SAVED_MODEL_OPTIONAL_TAG_TEMPLATE.format(
         tag_key=tag_key, tag_value="n/a")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -997,10 +1046,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       ("network-architecture", "n/a", "network_architecture"))
   def test_collection_markdown_with_unsupported_tag_value(
       self, tag_key, tag_value, yaml_file_name):
-    self.set_up_publisher_page("google")
     content = COLLECTION_OPTIONAL_TAG_TEMPLATE.format(
         tag_key=tag_key, tag_value=tag_value)
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(_ABSOLUTE_COLLECTION_PATH, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -1011,12 +1059,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           root_dir=self.tmp_root_dir)
 
   def test_collection_without_contained_model_url_fails(self):
-    self.set_up_publisher_page("google")
     content = COLLECTION_OPTIONAL_TAG_TEMPLATE.format(
         tag_key="language", tag_value="en")
-    self.set_content(
-        "root/assets/docs/google/collections/text-embedding-collection/1.md",
-        content)
+    self.set_content(_ABSOLUTE_COLLECTION_PATH, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,
@@ -1033,10 +1078,9 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
       ("network-architecture", "network_architecture"))
   def test_placeholder_markdown_with_unsupported_tag_value(
       self, tag_key, yaml_file_name):
-    self.set_up_publisher_page("google")
     content = PLACEHOLDER_OPTIONAL_TAG_TEMPLATE.format(
         tag_key=tag_key, tag_value="n/a")
-    self.set_content("root/assets/docs/google/models/model/1.md", content)
+    self.set_content(self.markdown_file_path, content)
 
     with self.assertRaisesRegex(
         validator.MarkdownDocumentationError,

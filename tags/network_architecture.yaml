@@ -213,3 +213,5 @@ values:
     display_name: Vision Transformer
   - id: mixer
     display_name: MLP-Mixer
+  - id: nnclr
+    display_name: NNCLR

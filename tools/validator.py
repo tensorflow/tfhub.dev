@@ -918,7 +918,7 @@ class DocumentationParser:
 
   @property
   def parsed_metadata(self) -> str:
-    return self._parsed_metadata
+    return self._parsed_metadata  # pytype: disable=bad-return-type  # bind-properties
 
   def _raise_error(self, error_message: str) -> None:
     raise MarkdownDocumentationError(error_message)

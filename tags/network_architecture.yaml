@@ -85,6 +85,8 @@ values:
     display_name: MiDaS
   - id: mobilebert-uncased-l-24-h-128-b-512-a-4-f-4-opt
     display_name: MobileBert uncased_L-24_H-128_B-512_A-4_F-4_OPT
+  - id: mobilebert
+    display_name: MobileBert
   - id: mobilenet
     display_name: MobileNet
   - id: mobilenet-v1

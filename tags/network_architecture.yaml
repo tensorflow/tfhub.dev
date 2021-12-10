@@ -219,3 +219,5 @@ values:
     display_name: NNCLR
   - id: convmixer
     display_name: ConvMixer
+  - id: tnt
+    display_name: Transformer iN Transformer

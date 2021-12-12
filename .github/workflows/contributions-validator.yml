@@ -16,10 +16,12 @@ name: Documentation markdown validator
 
 on:
   pull_request:
+  push:
+    branches: [ master ]
 
 jobs:
   test-changed-md-files:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-latest
     name: Test changed markdown documentation files.
     steps:
       - uses: actions/checkout@v1

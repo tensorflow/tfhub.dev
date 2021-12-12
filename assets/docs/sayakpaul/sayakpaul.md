@@ -5,7 +5,7 @@ Sayak Paul.
 
 ## Details
 Sayak Paul ([@RisingSayak](https://twitter.com/RisingSayak)).
-Deep Learning Associate at PyImageSearch.
+Machine Learning Engineer at Carted.
 Google Developers Expert in Machine Learning.
 
 **GitHub:** [sayakpaul](https://github.com/sayakpaul)\

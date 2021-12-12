@@ -85,6 +85,8 @@ values:
     display_name: MiDaS
   - id: mobilebert-uncased-l-24-h-128-b-512-a-4-f-4-opt
     display_name: MobileBert uncased_L-24_H-128_B-512_A-4_F-4_OPT
+  - id: mobilebert
+    display_name: MobileBert
   - id: mobilenet
     display_name: MobileNet
   - id: mobilenet-v1
@@ -111,6 +113,8 @@ values:
     display_name: PNASNet-5 (large)
   - id: progressive-gan
     display_name: Progressive GAN
+  - id: regnety
+    display_name: RegNetY
   - id: reqa
     display_name: ReQA
   - id: resnet
@@ -203,3 +207,15 @@ values:
     display_name: WRN-106
   - id: yolo-v5
     display_name: YOLOv5
+  - id: bit
+    display_name: Big Transfer
+  - id: swin-transformer
+    display_name: Swin Transformer
+  - id: vit
+    display_name: Vision Transformer
+  - id: mixer
+    display_name: MLP-Mixer
+  - id: nnclr
+    display_name: NNCLR
+  - id: convmixer
+    display_name: ConvMixer

@@ -221,3 +221,5 @@ values:
     display_name: ConvMixer
   - id: tnt
     display_name: Transformer iN Transformer
+  - id: tridentnet
+    display_name: TridentNet

@@ -167,5 +167,7 @@ values:
     display_name: YouTube-8M
   - id: stl10
     display_name: STL-10
+  - id: cppe-5
+    display_name: CPPE 5
   - id: other
     display_name: Other

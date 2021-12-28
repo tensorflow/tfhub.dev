@@ -5,8 +5,8 @@ Rishit Dagli.
 
 ## Details
 Rishit Dagli ([@rishit_dagli](https://twitter.com/rishit_dagli)).
-10 th Grade Student.
-TedX, TedEd Speaker.
+High School Student.
+TEDx, TEDEd Speaker.
 
 **GitHub:** [Rishit-dagli](https://github.com/Rishit-dagli)\
 **Personal Website:** [rishit.tech](https://www.rishit.tech)\

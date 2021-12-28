@@ -38,5 +38,8 @@ values:
   - id: cc-by-nc-4.0
     display_name: CC-BY-NC-4.0
     url: https://creativecommons.org/licenses/by-nc/4.0
+  - id: cc-by-sa-4.0
+    display_name: CC-BY-SA-4.0
+    url: https://creativecommons.org/licenses/by-sa/4.0
   - id: custom
     display_name: custom

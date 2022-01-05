@@ -223,3 +223,5 @@ values:
     display_name: Transformer iN Transformer
   - id: tridentnet
     display_name: TridentNet
+  - id: fcos
+    display_name: FCOS

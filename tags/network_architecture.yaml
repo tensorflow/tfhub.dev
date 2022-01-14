@@ -225,3 +225,5 @@ values:
     display_name: TridentNet
   - id: fcos
     display_name: FCOS
+  - id: fsaf
+    display_name: FSAF

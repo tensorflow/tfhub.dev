@@ -229,3 +229,5 @@ values:
     display_name: FSAF
   - id: regnetx
     display_name: RegNetX
+  - id: yolo
+    display_name: YOLO

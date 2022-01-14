@@ -227,3 +227,5 @@ values:
     display_name: FCOS
   - id: fsaf
     display_name: FSAF
+  - id: regnetx
+    display_name: RegNetX

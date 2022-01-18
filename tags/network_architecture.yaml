@@ -223,3 +223,11 @@ values:
     display_name: Transformer iN Transformer
   - id: tridentnet
     display_name: TridentNet
+  - id: fcos
+    display_name: FCOS
+  - id: fsaf
+    display_name: FSAF
+  - id: regnetx
+    display_name: RegNetX
+  - id: yolo
+    display_name: YOLO

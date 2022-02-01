@@ -231,3 +231,5 @@ values:
     display_name: RegNetX
   - id: yolo
     display_name: YOLO
+  - id: convnext
+    display_name: ConvNeXT

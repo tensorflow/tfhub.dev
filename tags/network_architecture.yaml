@@ -232,4 +232,4 @@ values:
   - id: yolo
     display_name: YOLO
   - id: convnext
-    display_name: CNN
+    display_name: ConvNeXT

@@ -87,6 +87,8 @@ values:
     display_name: Kinetics-400
   - id: kinetics-600
     display_name: Kinetics-600
+  - id: librilight
+    display_name: Libri-light
   - id: librispeech
     display_name: LibriSpeech
   - id: ljspeech

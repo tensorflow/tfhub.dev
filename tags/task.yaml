@@ -11,6 +11,10 @@ values:
     display_name: Audio event classification
     domains:
       - audio
+  - id: audio-paralinguistics
+    display_name: Audio paralinguistics classification
+    domains:
+      - audio
   - id: audio-pitch-extraction
     display_name: Audio pitch extraction
     domains:

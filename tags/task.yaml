@@ -101,6 +101,10 @@ values:
     domains:
       - image
       - text
+  - id: text-sequence-alignment
+    display_name: Biological sequence alignment
+    domains:
+      - text
   - id: text-classification
     display_name: Text classification
     domains:

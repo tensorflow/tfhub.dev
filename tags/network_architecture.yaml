@@ -87,8 +87,6 @@ values:
     display_name: MobileBert uncased_L-24_H-128_B-512_A-4_F-4_OPT
   - id: mobilebert
     display_name: MobileBert
-  - id: mobilebert-edgetpu-s
-    display_name: MobileBert EdgeTPU Small
   - id: mobilenet
     display_name: MobileNet
   - id: mobilenet-v1
@@ -167,10 +165,6 @@ values:
     display_name: SSD Mobilenet V1
   - id: ssd-mobilenet-v2
     display_name: SSD Mobilenet V2
-  - id: ssd-mobilenet-v2-fpn
-    display_name: SSD Mobilenet V2 FPN
-  - id: ssd-spaghettinet-edgetpu-large
-    display_name: SSD Spaghettinet EdgeTPU Large
   - id: swivel
     display_name: Swivel
   - id: tacotron2

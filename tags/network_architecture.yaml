@@ -239,3 +239,5 @@ values:
     display_name: YOLO
   - id: convnext
     display_name: ConvNeXT
+  - id: deit 
+    display_name: DeiT

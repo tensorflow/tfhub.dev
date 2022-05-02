@@ -242,5 +242,4 @@ values:
   - id: deit
     display_name: DeiT
   - id: cait
-    display: CaiT 
-    
+    display_name: CaiT 

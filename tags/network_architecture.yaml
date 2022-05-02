@@ -241,3 +241,5 @@ values:
     display_name: ConvNeXT
   - id: deit
     display_name: DeiT
+  - id: cait
+    display_name: CaiT 

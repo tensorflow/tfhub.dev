@@ -243,3 +243,5 @@ values:
     display_name: DeiT
   - id: cait
     display_name: CaiT
+  - id: xcit
+    display_name: XCiT

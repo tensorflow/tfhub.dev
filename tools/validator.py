@@ -38,6 +38,7 @@ import re
 import subprocess
 import sys
 import tarfile
+import time
 import textwrap
 from typing import AbstractSet, Iterator, Mapping, MutableSequence, Optional, Sequence, Type, TypeVar
 import urllib.request
@@ -56,6 +57,9 @@ from tensorflow.core.protobuf import saved_model_pb2
 # pylint: enable=g-direct-tensorflow-import
 
 FLAGS = None
+
+_CI_ENV_KEY = "GITHUB_ACTION"
+_SLEEP_SECONDS = 5
 
 # Relative path from tfhub.dev/ to the docs/ directory.
 DOCS_PATH = "assets/docs"
@@ -197,6 +201,10 @@ def _is_asset_path_modified(file_path: str) -> bool:
   else:
     raise MarkdownDocumentationError(
         f"Internal: grep command returned unexpected exit code {return_code}")
+
+
+def _should_sleep() -> bool:
+  return os.environ.get(_CI_ENV_KEY, None) is not None
 
 
 def _check_that_saved_model_pb_parses(tar: tarfile.TarFile,
@@ -1015,6 +1023,10 @@ class DocumentationParser:
                                         self._parsed_metadata, self._file_path)
     except MarkdownDocumentationError as e:
       self._raise_error(str(e))
+    finally:
+      # Wait before each check to prevent exhausting storage read quota.
+      if _should_sleep():
+        time.sleep(_SLEEP_SECONDS)
 
 
 def validate_documentation_dir(validation_config: ValidationConfig,

@@ -1140,18 +1140,18 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
           file_path=self.get_full_path(self.markdown_file_path))
 
   @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
-  def test_running_normally_does_not_sleep(self):
+  def test_does_not_sleep_in_workflow_without_smoke_test(self):
     documentation_parser = self._get_parser_for_validating_saved_model_file(
         "saved_model.pb", self.markdown_file_path)
 
     with mock.patch.object(time, "sleep", autospec=True) as mock_sleep:
       documentation_parser.validate(
-          validation_config=validator.ValidationConfig(do_smoke_test=True),
+          validation_config=validator.ValidationConfig(do_smoke_test=False),
           file_path=self.get_full_path(self.markdown_file_path))
       mock_sleep.assert_not_called()
 
   @mock.patch.object(urllib.request, "urlopen", new=MockUrlOpen)
-  def test_should_sleep(self):
+  def test_should_sleep_in_workflow_on_smoke_test(self):
     self.should_sleep = mock.patch.object(
         validator, "_should_sleep", return_value=True).start()
     documentation_parser = self._get_parser_for_validating_saved_model_file(

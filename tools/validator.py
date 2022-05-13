@@ -756,6 +756,9 @@ class SavedModelParsingPolicy(ModelParsingPolicy):
           SavedModel proto.
     """
     valid_saved_model_proto_found = False
+    # Wait before each check to prevent exhausting storage read quota.
+    if _should_sleep():
+      time.sleep(_SLEEP_SECONDS)
     with urllib.request.urlopen(remote_archive) as url_contents:
       try:
         with tarfile.open(fileobj=url_contents, mode="r|gz") as tar:
@@ -1023,10 +1026,6 @@ class DocumentationParser:
                                         self._parsed_metadata, self._file_path)
     except MarkdownDocumentationError as e:
       self._raise_error(str(e))
-    finally:
-      # Wait before each check to prevent exhausting storage read quota.
-      if _should_sleep():
-        time.sleep(_SLEEP_SECONDS)
 
 
 def validate_documentation_dir(validation_config: ValidationConfig,

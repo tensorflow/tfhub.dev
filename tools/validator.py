@@ -171,7 +171,8 @@ TFLITE_SUFFIX = ".tflite"
 # https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/saved_model/README.md  # pylint: disable=line-too-long
 ALLOWED_SAVED_MODEL_PATHS = frozenset([
     "saved_model.pb", "saved_model.pbtxt", "tfhub_module.pb",
-    "keras_metadata.pb", "assets/*", "assets.extra/*", "variables/variables.*"
+    "keras_metadata.pb", "assets/*", "assets.extra/*", "variables/variables.*",
+    "fingerprint.pb"
 ])
 
 ParsingPolicyType = TypeVar("ParsingPolicyType", bound="ParsingPolicy")

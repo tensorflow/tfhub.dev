@@ -15,12 +15,16 @@ values:
     display_name: BAIR Robot Pushing Dataset
   - id: bbc-xsum
     display_name: BBC XSum Summarization
+  - id: bdd
+    display_name: Berkeley Deep Drive
   - id: birds-or-bicycles
     display_name: birds-or-bicycles
   - id: blendedmvs
     display_name: BlendedMVS
   - id: bookscorpus
     display_name: BooksCorpus
+  - id: camvid
+    display_name: CamVid
   - id: cifar-10
     display_name: CIFAR-10
   - id: cifar-100
@@ -63,6 +67,8 @@ values:
     display_name: Giga5
   - id: hrwsi
     display_name: HRWSI
+  - id: idd
+    display_name: India Driving Dataset
   - id: imagenet
     display_name: ImageNet
   - id: imagenet-ilsvrc-2012-cls
@@ -81,12 +87,18 @@ values:
     display_name: Internal AgriPredict Dataset
   - id: irs
     display_name: IRS
+  - id: isaid
+    display_name: iSAID
+  - id: isprs
+    display_name: ISPRS
   - id: kth
     display_name: KTH
   - id: kinetics-400
     display_name: Kinetics-400
   - id: kinetics-600
     display_name: Kinetics-600
+  - id: kitti
+    display_name: KITTI
   - id: librilight
     display_name: Libri-light
   - id: librispeech
@@ -97,6 +109,8 @@ values:
     display_name: LSUN Bedroom
   - id: lol
     display_name: LOL
+  - id: mapillary
+    display_name: Mapillary Vista Dataset
   - id: megadepth
     display_name: MegaDepth
   - id: mnli
@@ -113,6 +127,8 @@ values:
     display_name: NOAA PIFSC HARP
   - id: openimagesv4
     display_name: OpenImagesV4
+  - id: pascal-context
+    display_name: Pascal Context
   - id: pascal-voc-2012
     display_name: PASCAL VOC 2012
   - id: plant-village
@@ -167,8 +183,18 @@ values:
     display_name: WSVD
   - id: youtube-8m
     display_name: YouTube-8M
+  - id: scannet
+    display_name: ScanNet
   - id: stl10
     display_name: STL-10
+  - id: suim
+    display_name: SUIM
+  - id: sunrgbd
+    display_name: SUN RGB-D
+  - id: vgallery
+    display_name: vGallery
+  - id: vkitti2
+    display_name: vKITTI2
   - id: cppe-5
     display_name: CPPE 5
   - id: other

@@ -65,6 +65,8 @@ values:
     display_name: Faster R-CNN
   - id: gan
     display_name: GAN
+  - id: hrnet-v2-w48
+    display_name: HRNetV2-W48
   - id: i3d
     display_name: I3D
   - id: inception-resnet-v2

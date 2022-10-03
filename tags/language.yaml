@@ -97,7 +97,7 @@ values:
   - id: ta
     display_name: Tamil
   - id: te
-    display_name: Tegulu
+    display_name: Telugu
   - id: th
     display_name: Thai
   - id: tl

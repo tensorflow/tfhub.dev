@@ -6,6 +6,6 @@ Mohammad Shoaib.
 ## Details
 Contributor(TensorFlow) at Google Summer of Code 2022 
 
-**GitHub:** [shoaib6174](https://github.com/shoaib6147)\
+**GitHub:** [shoaib6174](https://github.com/shoaib6174)\
 **LinkedIn:** [Mohammad Shoaib](https://www.linkedin.com/in/shoaib6174/)\
 **Twitter:** [@shoaib6174](https://twitter.com/shoaib6174)

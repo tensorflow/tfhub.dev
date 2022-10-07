@@ -39,21 +39,16 @@ for the `s3` model were gathered from [here](https://github.com/microsoft/Cream/
 
 
 
-### Feature extractors
+### Video Swin Transformer Feature extractors Models
 
-* [swin_base_patch4_window12_384_fe](https://tfhub.dev/sayakpaul/swin_base_patch4_window12_384_fe)
-* [swin_base_patch4_window7_224_fe](https://tfhub.dev/sayakpaul/swin_base_patch4_window7_224_fe)
-* [swin_large_patch4_window12_384_fe](https://tfhub.dev/sayakpaul/swin_large_patch4_window12_384_fe)
-* [swin_large_patch4_window7_224_fe](https://tfhub.dev/sayakpaul/swin_large_patch4_window7_224_fe)
-* [swin_small_patch4_window7_224_fe](https://tfhub.dev/sayakpaul/swin_small_patch4_window7_224_fe)
-* [swin_tiny_patch4_window7_224_fe](https://tfhub.dev/sayakpaul/swin_tiny_patch4_window7_224_fe)
-* [swin_base_patch4_window12_384_in22k_fe](https://tfhub.dev/sayakpaul/swin_base_patch4_window12_384_in22k_fe)
-* [swin_base_patch4_window7_224_in22k_fe](https://tfhub.dev/sayakpaul/swin_base_patch4_window7_224_in22k_fe)
-* [swin_large_patch4_window12_384_in22k_fe](https://tfhub.dev/sayakpaul/swin_large_patch4_window12_384_in22k_fe)
-* [swin_large_patch4_window7_224_in22k_fe](https://tfhub.dev/sayakpaul/swin_large_patch4_window7_224_in22k_fe)
-* [swin_s3_tiny_224_fe](https://tfhub.dev/sayakpaul/swin_s3_tiny_224_fe)
-* [swin_s3_small_224_fe](https://tfhub.dev/sayakpaul/swin_s3_small_224_fe)
-* [swin_s3_base_224_fe](https://tfhub.dev/sayakpaul/swin_s3_base_224_fe)'
+* [swin_tiny_patch244_window877_kinetics400_1k](https://tfhub.dev/shoaib6174/swin_tiny_patch244_window877_kinetics400_1k)
+* [swin_small_patch244_window877_kinetics400_1k](https://tfhub.dev/shoaib6174/swin_small_patch244_window877_kinetics400_1k)
+* [swin_base_patch244_window877_kinetics400_1k](https://tfhub.dev/shoaib6174/swin_base_patch244_window877_kinetics400_1k)
+* [swin_base_patch244_window877_kinetics400_22k](https://tfhub.dev/shoaib6174/swin_base_patch244_window877_kinetics400_22k)
+* [swin_base_patch244_window877_kinetics600_1k](https://tfhub.dev/shoaib6174/swin_base_patch244_window877_kinetics600_1k)
+* [swin_base_patch244_window1677_sthv2](https://tfhub.dev/shoaib6174/swin_base_patch244_window1677_sthv2)
+
+
 
 ## Notes
 

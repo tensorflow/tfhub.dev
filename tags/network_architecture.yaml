@@ -220,6 +220,9 @@ values:
   - id: swin-transformer
     display_name: Swin Transformer
   - id: vit
+  - id: video-swin-transformer
+    display_name: Video Swin Transformer
+  - id: vit
     display_name: Vision Transformer
   - id: mixer
     display_name: MLP-Mixer

@@ -160,3 +160,7 @@ values:
     domains:
       - video
       - text
+  - id: video-feature-extraction
+    display_name: Video feature extraction
+    domains:
+      - video

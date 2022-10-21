@@ -160,3 +160,23 @@ values:
     domains:
       - video
       - text
+  - id: denoising
+    display_name: Image denoising
+    domains:
+      - image
+  - id: dehazing
+    display_name: Image dehazing
+    domains:
+      - image
+  - id: deraining
+    display_name: Image deraining
+    domains:
+      - image
+  - id: deblurring
+    display_name: Image deblurring
+    domains:
+      - image
+  - id: enhancement
+    display_name: Image enhancement
+    domains:
+      - image

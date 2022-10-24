@@ -247,5 +247,7 @@ values:
     display_name: CaiT
   - id: xcit
     display_name: XCiT
+  - id: maxim
+    display_name: MAXIM
   - id: mosaic
     display_name: MOSAIC

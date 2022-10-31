@@ -219,6 +219,8 @@ values:
     display_name: Big Transfer
   - id: swin-transformer
     display_name: Swin Transformer
+  - id: video-swin-transformer
+    display_name: Video Swin Transformer
   - id: vit
     display_name: Vision Transformer
   - id: mixer

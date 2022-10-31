@@ -180,3 +180,7 @@ values:
     display_name: Image enhancement
     domains:
       - image
+  - id: video-feature-extraction
+    display_name: Video Feature Extraction
+    domains:
+      - video

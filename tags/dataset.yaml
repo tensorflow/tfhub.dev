@@ -9,6 +9,8 @@ values:
     display_name: ApolloScape
   - id: audioset
     display_name: AudioSet
+  - id: ava
+    display_name: Aesthetic Visual Analysis (Ava)
   - id: bair
     display_name: BAIR
   - id: bair-robot-pushing-dataset
@@ -99,6 +101,8 @@ values:
     display_name: Kinetics-600
   - id: kitti
     display_name: KITTI
+  - id: koniq-10k
+    display_name: KonIQ-10k
   - id: librilight
     display_name: Libri-light
   - id: librispeech
@@ -127,6 +131,8 @@ values:
     display_name: NOAA PIFSC HARP
   - id: openimagesv4
     display_name: OpenImagesV4
+  - id: paq-2-piq
+    display_name: Patches to Pictures (PaQ-2-PiQ)
   - id: pascal-context
     display_name: Pascal Context
   - id: pascal-voc-2012
@@ -149,6 +155,8 @@ values:
     display_name: silero-en
   - id: silero-es
     display_name: silero-es
+  - id: spaq
+    display_name: Smartphone Photography Attribute and Quality (SPAQ)
   - id: squad
     display_name: SQuAD
   - id: squad-2-0

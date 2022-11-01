@@ -63,6 +63,10 @@ values:
     display_name: Image feature vector
     domains:
       - image
+  - id: image-frame-interpolation
+    display_name: Image Frame Interpolation
+    domains:
+      - image
   - id: image-generator
     display_name: Image generator
     domains:

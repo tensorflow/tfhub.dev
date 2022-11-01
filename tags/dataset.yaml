@@ -201,6 +201,8 @@ values:
     display_name: SUN RGB-D
   - id: vgallery
     display_name: vGallery
+  - id: vimeo-90k
+    display_name: Vimeo-90k
   - id: vkitti2
     display_name: vKITTI2
   - id: cppe-5

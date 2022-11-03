@@ -99,6 +99,8 @@ values:
     display_name: MobileNet V2
   - id: mobilenet-v3
     display_name: MobileNet V3
+  - id: mobilevit
+    display_name: MobileViT
   - id: movinet
     display_name: MoViNet
   - id: multiband-melgan

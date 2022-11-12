@@ -1,4 +1,4 @@
-# Publisher UniversalDot
+# Publisher universaldot
 UNIVERSALDOT FOUNDATION
 
 [![Icon URL]](https://github.com/UniversalDot/documents/blob/master/logo/only-text-bk.png)

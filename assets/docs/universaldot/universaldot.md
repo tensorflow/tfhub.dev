@@ -1,7 +1,7 @@
 # Publisher universaldot
 UNIVERSALDOT FOUNDATION
 
-[![Icon URL]](https://github.com/UniversalDot/documents/blob/master/logo/only-text-bk.png)
+[![Icon URL]](https://raw.githubusercontent.com/UniversalDot/documents/master/logo/rsz_jpg-02.jpg)
 
 ## About
 UniversalDot Foundation is focused on creating applications for the decentralized internet.

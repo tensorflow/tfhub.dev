@@ -596,12 +596,10 @@ class ModelParsingPolicy(ParsingPolicy):
           f"Expected asset-path to end with {self._supported_asset_path_suffix}"
           f" but was {asset_path}.")
 
-    # GitHub's robots.txt disallows fetches to */download, which means that
+    # GitHub's robots.txt disallows fetches from many paths, which means that
     # the asset-path URL cannot be fetched. Markdown validation should fail if
-    # asset-path matches this regex.
-    github_download_url_regex = re.compile(
-        "https://github.com/.*/releases/download/.*")
-    if github_download_url_regex.fullmatch(asset_path):
+    # asset-path matches this.
+    if asset_path.startswith(("https://github.com/", "http://github.com/")):
       raise MarkdownDocumentationError(
           f"The asset-path {asset_path} is a url that cannot be automatically "
           "fetched. Please provide an asset-path that is allowed to be fetched "

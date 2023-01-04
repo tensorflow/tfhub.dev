@@ -814,7 +814,7 @@ class ValidatorTest(parameterized.TestCase, tf.test.TestCase):
   def test_asset_path_is_github_download_url_test(self):
     self.set_content(
         self.markdown_file_path, MINIMAL_SAVED_MODEL_TEMPLATE %
-        "https://github.com/some_repo/releases/download/some_path.tar.gz")
+        "https://github.com/some_repo/some_path.tar.gz")
 
     with self.assertRaisesRegex(validator.MarkdownDocumentationError,
                                 ".*cannot be automatically fetched.*"):

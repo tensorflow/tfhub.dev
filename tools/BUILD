@@ -1,6 +1,8 @@
 load("//:tfhub_dev.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
 load("//tools/build_defs/testing:bzl_library.bzl", "bzl_library")  # buildifier: disable=load-on-top
 
+package(default_applicable_licenses = ["//third_party/py/tfhub_dev:license"])
+
 # Copyright 2020 The TensorFlow Hub Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

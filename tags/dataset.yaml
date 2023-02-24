@@ -189,6 +189,8 @@ values:
     display_name: WMT16
   - id: wsvd
     display_name: WSVD
+  - id: xeno-canto
+    display_name: Xeno-Canto
   - id: youtube-8m
     display_name: YouTube-8M
   - id: scannet

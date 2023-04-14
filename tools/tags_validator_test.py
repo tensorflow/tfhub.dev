@@ -339,7 +339,6 @@ class InteractiveVisualizerTagParserTest(TagDefinitionFileParserTest):
     })
 
   @parameterized.parameters(
-      "https://overlay.sandbox.google.com/",
       "https://storage.googleapis.com/interactive_visualizer/",
       "https://storage.googleapis.com/tfhub-visualizers/",
       "https://www.gstatic.com/")
@@ -361,13 +360,17 @@ class InteractiveVisualizerTagParserTest(TagDefinitionFileParserTest):
     """)
     self.set_content("tags/interactive_visualizer.yaml", content)
 
-    self.assert_validation_returns_correct_dict({
-        f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml":
-            "URL needs to start with any of ['https://overlay.sandbox.google."
-            "com/', 'https://storage.googleapis.com/interactive_visualizer/', "
-            "'https://storage.googleapis.com/tfhub-visualizers/', "
-            "'https://www.gstatic.com/'] but was https://mypage.com/index.html."
-    })
+    self.assert_validation_returns_correct_dict(
+        {
+            f"{self.tmp_dir.full_path}/tags/interactive_visualizer.yaml": (
+                "URL needs to start with any of"
+                " ['https://storage.googleapis.com/interactive_visualizer/',"
+                " 'https://storage.googleapis.com/tfhub-visualizers/',"
+                " 'https://www.gstatic.com/'] but was"
+                " https://mypage.com/index.html."
+            )
+        }
+    )
 
 
 @parameterized.parameters("colab.yaml", "demo.yaml")

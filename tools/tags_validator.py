@@ -51,7 +51,6 @@ ALLOWED_URL_PREFIXES = frozenset({
     "https://www.gstatic.com/",
     "https://storage.googleapis.com/tfhub-visualizers/",
     "https://storage.googleapis.com/interactive_visualizer/",
-    "https://overlay.sandbox.google.com/"
 })
 HTTPS_SCHEME = "https"
 # Field names used by UrlTagParser.

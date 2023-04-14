@@ -46,26 +46,6 @@ values:
   - id: spice
     url_template: https://www.gstatic.com/aihub/tfhub/demos/spice.html
 
-  # Mobile Mushroom Classifier
-  - id: mobile_mushroom_classifier
-    url_template: "https://overlay.sandbox.google.com/embed?origin=https://tfhub.dev&\
-      overlay_name=mobile_mushroom_classifier&theme=light"
-
-  # Mushroom Recognizer V2
-  - id: mushroom_recognizer_v2
-    url_template: "https://overlay.sandbox.google.com/embed?origin=https://tfhub.dev&\
-      overlay_name=mushroom_recognizer_v2&theme=light"
-
-  # iMet Collection Attribute Classifier
-  - id: imet_attribute_classifier
-    url_template: "https://overlay.sandbox.google.com/embed?origin=https://tfhub.dev&\
-      overlay_name=imet_attribute_classifier&theme=light"
-
-  # iNaturalist
-  - id: inat
-    url_template: "https://overlay.sandbox.google.com/embed?origin=https://tfhub.dev&\
-      overlay_name=inat&theme=light"
-
   # TF.js powered vision visualizers
   # Example: https://tfhub.dev/google/aiy/vision/classifier/birds_V1/1
   # The appended parameters (after being URL-decoded) should look like this:

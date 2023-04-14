@@ -87,7 +87,6 @@ pytype_strict_library(
         ":filesystem_utils",
         "@io_abseil_py//absl/logging",
         "//third_party/py/ruamel",
-        "@org_tensorflow_tfhub_dev//tools:expect_tensorflow_installed",
         "//third_party/py/yaml",
     ],
 )

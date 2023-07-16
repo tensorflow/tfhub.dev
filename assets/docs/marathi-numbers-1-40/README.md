@@ -2,6 +2,7 @@ Tensorflow model for identifying marathi numbers 1 through 40 from audio recordi
 
 This is the code for inferencing using this model:
 
+```
 import tensorflow as tf
 from keras import models
 import numpy as np
@@ -40,3 +41,4 @@ def main(file_name):
 
 if __name__ == '__main__':
     main(sys.argv[1])
+```

@@ -1,4 +1,8 @@
-Tensorflow model for identifying marathi numbers 1 through 40 from audio recording.
+# Publisher marathi-numbers-1-40
+Marathi numbers 1 through 40
+
+## marathi-numbers-1-40
+Tensorflow audio model for identifying marathi numbers 1 through 40 from audio recordings
 
 This is the code for inferencing using this model:
 

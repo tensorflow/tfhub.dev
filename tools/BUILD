@@ -1,3 +1,4 @@
+load("//third_party/bazel_rules/rules_python/python:defs.bzl", "py_library")
 load("//:tfhub_dev.bzl", "pytype_strict_binary", "pytype_strict_library", "pytype_strict_test")
 load("//tools/build_defs/testing:bzl_library.bzl", "bzl_library")  # buildifier: disable=load-on-top
 

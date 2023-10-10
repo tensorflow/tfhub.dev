@@ -380,7 +380,7 @@ class ParsingPolicy(metaclass=abc.ABCMeta):
   @property
   def supported_metadata(self) -> AbstractSet[str]:
     """Return which metadata tags are supported."""
-    return set.union(self._required_metadata, self._optional_metadata)
+    return set.union(self._required_metadata, self._optional_metadata)  # pytype: disable=wrong-arg-types
 
   def get_allowed_file_paths(self, documentation_dir: str) -> Sequence[str]:
     """Returns the paths at which the documentation can be stored.

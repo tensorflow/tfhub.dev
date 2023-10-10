@@ -122,7 +122,7 @@ class TagDefinitionFileParser(metaclass=abc.ABCMeta):
     self._file_path = file_path
     self.required_top_keys = required_top_keys
     self.optional_top_keys = optional_top_keys
-    self.supported_top_keys = set.union(self.required_top_keys,
+    self.supported_top_keys = set.union(self.required_top_keys,  # pytype: disable=wrong-arg-types
                                         self.optional_top_keys)
 
   @classmethod
